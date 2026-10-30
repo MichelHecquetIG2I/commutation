@@ -598,7 +598,7 @@ function buildPalette(){const pal=$('pal');pal.innerHTML='';
   const s2=document.createElement('div');s2.className='sep';pal.appendChild(s2);const lb=document.createElement('div');lb.className='lbl';lb.textContent='Commande';lb.style.cssText='text-align:center;padding:2px 0';pal.appendChild(lb);
   for(const [t,l] of CTRL)mk(t,l,makeIcon(t))}
 function setTool(t){tool=t;wireStart=null;arrowStart=null;document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
-  $('hint').textContent=t==='select'?'Clic : sélectionner · glisser : déplacer (flèche : extrémité = redimensionner) · R : pivoter · Suppr : effacer · molette : zoom':t==='wire'?'Clic pour tracer, Échap ou double‑clic pour terminer · R : changer le coude':t==='arrow'?'Flèche d’illustration (sans effet sur la simulation) : clic départ, clic arrivée · R : quart de tour':'Clic : poser · R : pivoter · Échap : revenir à la sélection';draw()}
+  $('hint').textContent=t==='select'?'Clic : sélectionner · glisser : déplacer (fil : perpendiculairement ; flèche : extrémité = redimensionner) · R : pivoter · Suppr : effacer · molette : zoom':t==='wire'?'Clic pour tracer, Échap ou double‑clic pour terminer · R : changer le coude':t==='arrow'?'Flèche d’illustration (sans effet sur la simulation) : clic départ, clic arrivée · R : quart de tour':'Clic : poser · R : pivoter · Échap : revenir à la sélection';draw()}
 
 /* ---------- Historique ---------- */
 function snap(){undoStack.push(JSON.stringify({circuit,probes}));if(undoStack.length>60)undoStack.shift()}
@@ -616,6 +616,25 @@ function compLocal(c,wx,wy){let dx=wx-c.x,dy=wy-c.y;const r=((c.rot%4)+4)%4;for(
 function hitComp(wx,wy){for(let i=circuit.comps.length-1;i>=0;i--){const c=circuit.comps[i],[lx,ly]=compLocal(c,wx,wy);
   if(c.type==='gnd'){if(Math.abs(lx)<.8&&ly>-.3&&ly<1.2)return c}else if(Math.abs(lx)<=2.1&&Math.abs(ly)<=1.3)return c}return null}
 function segDist(w,x,y){const ax=w.x1,ay=w.y1,bx=w.x2,by=w.y2,dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy;let t=l?((x-ax)*dx+(y-ay)*dy)/l:0;t=Math.max(0,Math.min(1,t));return Math.hypot(x-(ax+t*dx),y-(ay+t*dy))}
+/* Les fils attachés aux broches suivent le composant ; un décalage est absorbé par un coude pour rester horizontal/vertical. */
+function rewire(d){const np=pinsOf(d.c),op=d.pins0,out=[],seg=(a,b)=>{if(a[0]!==b[0]||a[1]!==b[1])out.push({x1:a[0],y1:a[1],x2:b[0],y2:b[1]})};
+  for(const w of d.wires0){const a=op.findIndex(p=>p[0]===w.x1&&p[1]===w.y1),b=op.findIndex(p=>p[0]===w.x2&&p[1]===w.y2);
+    if(a<0&&b<0){out.push({...w});continue}
+    if(a>=0&&b>=0){seg(np[a],np[b]);continue}
+    const F=a>=0?[w.x2,w.y2]:[w.x1,w.y1],N=np[a>=0?a:b],mid=w.y1===w.y2?[N[0],F[1]]:[F[0],N[1]];seg(F,mid);seg(mid,N)}
+  circuit.wires=out}
+/* Déplace un tronçon perpendiculairement à sa direction ; les fils qui le prolongent par un coude s'étirent, sinon un tronçon de liaison est ajouté. */
+function moveWire(d,dl,h){const W=d.wires0,t=W[d.i],mv=(x,y)=>h?[x,y+dl]:[x+dl,y];
+  const pins=new Set();for(const c of circuit.comps)for(const p of pinsOf(c))pins.add(K(p[0],p[1]));
+  const out=W.map(w=>({...w})),stubs=[];
+  for(const P of[[t.x1,t.y1],[t.x2,t.y2]]){const N=mv(P[0],P[1]);let stub=pins.has(K(P[0],P[1]));
+    W.forEach((w,j)=>{if(j===d.i)return;const e1=w.x1===P[0]&&w.y1===P[1],e2=w.x2===P[0]&&w.y2===P[1];
+      if(e1||e2){const along=h?w.x1===w.x2:w.y1===w.y2;if(along){if(e1){out[j].x1=N[0];out[j].y1=N[1]}else{out[j].x2=N[0];out[j].y2=N[1]}}else stub=true}
+      else if(onInterior(w,P[0],P[1]))stub=true});
+    if(stub&&dl)stubs.push({x1:P[0],y1:P[1],x2:N[0],y2:N[1]})}
+  const a=mv(t.x1,t.y1),b=mv(t.x2,t.y2);out[d.i]={x1:a[0],y1:a[1],x2:b[0],y2:b[1]};
+  const keep=out.map((w,j)=>j===d.i||w.x1!==w.x2||w.y1!==w.y2),nw=[];let ni=0;out.forEach((w,j)=>{if(keep[j]){if(j===d.i)ni=nw.length;nw.push(w)}});
+  circuit.wires=nw.concat(stubs);sel={kind:'w',i:ni}}
 function hitArrow(wx,wy){for(let i=circuit.arrows.length-1;i>=0;i--)if(segDist(circuit.arrows[i],wx,wy)<.3)return i;return -1}
 function hitWire(wx,wy){for(let i=circuit.wires.length-1;i>=0;i--)if(segDist(circuit.wires[i],wx,wy)<.3)return i;return -1}
 function wirePreview(a,b,flip){if(a.x===b.x||a.y===b.y)return[[a.x,a.y,b.x,b.y]];return flip?[[a.x,a.y,a.x,b.y],[a.x,b.y,b.x,b.y]]:[[a.x,a.y,b.x,a.y],[b.x,a.y,b.x,b.y]]}
@@ -680,8 +699,8 @@ function evPos(e){const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.c
 cv.addEventListener('pointerdown',e=>{cv.focus();cv.setPointerCapture(e.pointerId);const[px,py]=evPos(e),[wx,wy]=toW(px,py),gx=Math.round(wx),gy=Math.round(wy);
   if(e.button===2){if(wireStart||arrowStart){wireStart=null;arrowStart=null;draw()}return}
   if(tool==='select'){const c=hitComp(wx,wy);
-    if(c){sel={kind:'c',id:c.id};snap();drag={type:'move',c,ox:c.x,oy:c.y,sx:gx,sy:gy,moved:false}}
-    else{const i=hitWire(wx,wy),ia=hitArrow(wx,wy);if(ia>=0){sel={kind:'a',i:ia};const a=circuit.arrows[ia],e1=Math.hypot(wx-a.x1,wy-a.y1)<.6,e2=!e1&&Math.hypot(wx-a.x2,wy-a.y2)<.6;snap();drag={type:'arrow',a,mode:e1?1:e2?2:0,o:{...a},sx:gx,sy:gy,moved:false}}else if(i>=0)sel={kind:'w',i};else{sel=null;drag={type:'pan',px,py,ox:view.ox,oy:view.oy}}}
+    if(c){sel={kind:'c',id:c.id};snap();drag={type:'move',c,pins0:pinsOf(c),wires0:circuit.wires.map(w=>({...w})),ox:c.x,oy:c.y,sx:gx,sy:gy,moved:false}}
+    else{const i=hitWire(wx,wy),ia=hitArrow(wx,wy);if(ia>=0){sel={kind:'a',i:ia};const a=circuit.arrows[ia],e1=Math.hypot(wx-a.x1,wy-a.y1)<.6,e2=!e1&&Math.hypot(wx-a.x2,wy-a.y2)<.6;snap();drag={type:'arrow',a,mode:e1?1:e2?2:0,o:{...a},sx:gx,sy:gy,moved:false}}else if(i>=0){sel={kind:'w',i};snap();drag={type:'wire',i,wires0:circuit.wires.map(w=>({...w})),sx:gx,sy:gy,moved:false}}else{sel=null;drag={type:'pan',px,py,ox:view.ox,oy:view.oy}}}
     renderInsp();draw()}
   else if(tool==='arrow'){
     if(!arrowStart)arrowStart={x:gx,y:gy};
@@ -694,12 +713,13 @@ cv.addEventListener('pointerdown',e=>{cv.focus();cv.setPointerCapture(e.pointerI
   else{snap();const c={id:idc++,type:tool,x:gx,y:gy,rot:ghostRot,p:Object.assign({},DEFAULTS[tool]),name:nextName(circuit.comps,tool)};circuit.comps.push(c);sel={kind:'c',id:c.id};persist();renderInsp();draw()}});
 cv.addEventListener('pointermove',e=>{const[px,py]=evPos(e);mouse={x:px,y:py,in:true};
   if(drag){if(drag.type==='pan'){view.ox=drag.ox+px-drag.px;view.oy=drag.oy+py-drag.py}
+    else if(drag.type==='wire'){const[wx,wy]=toW(px,py),h=drag.wires0[drag.i].y1===drag.wires0[drag.i].y2,dl=h?Math.round(wy)-drag.sy:Math.round(wx)-drag.sx;if(dl||drag.moved){drag.moved=true;moveWire(drag,dl,h)}}
     else if(drag.type==='arrow'){const[wx,wy]=toW(px,py),dx=Math.round(wx)-drag.sx,dy=Math.round(wy)-drag.sy,a=drag.a,o=drag.o;
       if(drag.mode!==2){a.x1=o.x1+dx;a.y1=o.y1+dy}if(drag.mode!==1){a.x2=o.x2+dx;a.y2=o.y2+dy}
       if(a.x1===a.x2&&a.y1===a.y2){a.x1=o.x1;a.y1=o.y1;a.x2=o.x2;a.y2=o.y2}else drag.moved=true}
-    else{const[wx,wy]=toW(px,py),gx=Math.round(wx),gy=Math.round(wy);const nx=drag.ox+gx-drag.sx,ny=drag.oy+gy-drag.sy;if(nx!==drag.c.x||ny!==drag.c.y){drag.c.x=nx;drag.c.y=ny;drag.moved=true}}}
+    else{const[wx,wy]=toW(px,py),gx=Math.round(wx),gy=Math.round(wy);const nx=drag.ox+gx-drag.sx,ny=drag.oy+gy-drag.sy;if(nx!==drag.c.x||ny!==drag.c.y){drag.c.x=nx;drag.c.y=ny;drag.moved=true;rewire(drag)}}}
   draw()});
-cv.addEventListener('pointerup',()=>{if(drag&&(drag.type==='move'||drag.type==='arrow')){if(!drag.moved)undoStack.pop();else persist()}drag=null});
+cv.addEventListener('pointerup',()=>{if(drag&&(drag.type==='move'||drag.type==='arrow'||drag.type==='wire')){if(!drag.moved)undoStack.pop();else persist()}drag=null});
 cv.addEventListener('pointerleave',()=>{mouse.in=false;draw()});
 cv.addEventListener('dblclick',()=>{if(tool==='wire'){wireStart=null;draw()}});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
