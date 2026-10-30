@@ -122,7 +122,7 @@ input.num{width:84px;font-family:var(--mono);text-align:right}
       </select></div>
     <div class="grp"><button class="btn" id="save" title="Enregistrer le circuit dans un fichier">Enregistrer</button><button class="btn" id="open" title="Ouvrir un fichier de circuit">Ouvrir…</button><input type="file" id="file" accept=".json,application/json" hidden></div>
     <div class="grp"><button class="btn" id="layout" title="Placer le schéma et les oscilloscopes côte à côte ou l’un sous l’autre">Côte à côte</button><button class="btn" id="addscope" title="Ajouter une fenêtre d’oscilloscope">+ Oscillo</button><label class="lbl" style="display:flex;align-items:center;gap:4px" title="Synchroniser la plage de temps de tous les oscilloscopes"><input type="checkbox" id="linkx" checked>Axes liés</label></div>
-    <div class="grp"><button class="btn on" id="gridtog" title="Afficher/masquer la grille" aria-pressed="true">Grille</button></div>
+    <div class="grp"><button class="btn on" id="gridtog" title="Afficher/masquer la grille" aria-pressed="true">Grille</button><label class="lbl" style="display:flex;align-items:center;gap:4px" title="Afficher les valeurs des composants sur le schéma"><input type="checkbox" id="valtog" checked>Valeurs</label></div>
     <div class="grp"><button class="btn" id="undo" title="Annuler (Ctrl+Z)">Annuler</button><button class="btn" id="clear">Nouveau</button></div>
     <div class="grp"><span class="lbl">Durée</span><input class="num" id="tstop" type="text" value="5m" aria-label="Durée de simulation en secondes"><span class="lbl">s</span>
       <span class="lbl">Pas</span><input class="num" id="dtin" type="text" value="auto" aria-label="Pas de calcul en secondes"><span class="lbl">s</span></div>
@@ -540,8 +540,9 @@ const SCHEMA={
   {k:'inv',l:'Commande complémentaire',t:'chk'},{k:'body',l:'Diode antiparallèle',t:'chk'},{k:'Ron',l:'Résistance passante',u:'Ω'},{k:'Vf',l:'Seuil de la diode',u:'V'}]};
 const KIND={v2:['tension secondaire','V'],i2:['courant secondaire','A'],o:['signal',''],v:['tension a−b','V'],va:['potentiel a','V'],vb:['potentiel b','V'],i:['courant','A'],g:['commande',''],m:['calcul','']};
 let circuit={comps:[],wires:[],arrows:[]},probes=[],sel=null,tool='select',ghostRot=0,view={ox:30,oy:30,s:1},idc=1,pidc=1;
-let arrowStart=null,wireStart=null,wireFlip=false,mouse={x:0,y:0,in:false},drag=null,res=null,runTok=0,undoStack=[],meas=null;const scopes=[];let active=null;
+let showVals=true,arrowStart=null,wireStart=null,wireFlip=false,mouse={x:0,y:0,in:false},drag=null,res=null,runTok=0,undoStack=[],meas=null;const scopes=[];let active=null;
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+showVals=store.get('commutation-showvals')!=='0';
 const setStatus=(t,c)=>{const s=$('status');s.textContent=t;s.className='status '+(c||'')};
 
 /* ---------- Symboles ---------- */
@@ -669,8 +670,8 @@ function drawComp(c,col,selected,probed){
   drawAnn(c);
   if(c.type==='gnd'||!c.name)return;
   const bl=BLOCK_TYPES.has(c.type)||c.type==='XF',top=(c.type==='SV'||c.type==='SI'||(c.type==='SW'&&c.p.mode==='ext'))?2.35:bl?1.5:1.05,rgt=bl?1.7:1.2,v=((c.rot%2)===1);cx.fillStyle=col;cx.font='500 '+Math.max(10,12*view.s)+'px '+css('--ui');
-  if(!v){cx.textAlign='center';cx.textBaseline='alphabetic';cx.fillText(c.name,px,py-top*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');cx.fillText(compLabel(c),px,py+(c.type==='SW'&&c.p.body?1.55:bl?1.45:1.2)*u+8*view.s)}
-  else{cx.textAlign='left';cx.textBaseline='alphabetic';cx.fillText(c.name,px+rgt*u,py-.1*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');cx.fillText(compLabel(c),px+rgt*u,py+.6*u)}
+  if(!v){cx.textAlign='center';cx.textBaseline='alphabetic';cx.fillText(c.name,px,py-top*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');if(showVals)cx.fillText(compLabel(c),px,py+(c.type==='SW'&&c.p.body?1.55:bl?1.45:1.2)*u+8*view.s)}
+  else{cx.textAlign='left';cx.textBaseline='alphabetic';cx.fillText(c.name,px+rgt*u,py-.1*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');if(showVals)cx.fillText(compLabel(c),px+rgt*u,py+.6*u)}
   if(probed){cx.fillStyle=css('--accent');cx.beginPath();cx.arc(px+(v?-.0:0),py+(v?0:0)-(v?0:0),0,0,1);cx.fill()}
 }
 
@@ -1054,6 +1055,7 @@ function gutter(g,move,step,reset){
 gutter($('gsplit'),e=>{const r=ctr.getBoundingClientRect();splitTo(ui.layout==='side'?(e.clientX-r.left)/r.width:(e.clientY-r.top)/r.height)},d=>splitTo((ui.a||.53)+d*.03),()=>{delete ui.a;applyUI()});
 gutter($('gside'),e=>sideTo(work.getBoundingClientRect().right-e.clientX-3),d=>sideTo((ui.side||300)-d*24),()=>{delete ui.side;applyUI()});
 let showGrid=true;
+$('valtog').checked=showVals;$('valtog').onchange=e=>{showVals=e.target.checked;store.set('commutation-showvals',showVals?'1':'0');draw()};
 $('gridtog').onclick=e=>{showGrid=!showGrid;e.currentTarget.classList.toggle('on',showGrid);e.currentTarget.setAttribute('aria-pressed',showGrid);draw()};
 $('layout').onclick=()=>{ui.layout=ui.layout==='side'?'stack':'side';applyUI();saveUI();requestAnimationFrame(()=>{fit();draw();drawScope()})};
 if(window.ResizeObserver){let rf=0;const ro=new ResizeObserver(()=>{cancelAnimationFrame(rf);rf=requestAnimationFrame(()=>{draw();drawScope()})});ro.observe($('schbox'))}
