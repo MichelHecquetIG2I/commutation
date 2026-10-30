@@ -122,6 +122,7 @@ input.num{width:84px;font-family:var(--mono);text-align:right}
       </select></div>
     <div class="grp"><button class="btn" id="save" title="Enregistrer le circuit dans un fichier">Enregistrer</button><button class="btn" id="open" title="Ouvrir un fichier de circuit">Ouvrir…</button><input type="file" id="file" accept=".json,application/json" hidden></div>
     <div class="grp"><button class="btn" id="layout" title="Placer le schéma et les oscilloscopes côte à côte ou l’un sous l’autre">Côte à côte</button><button class="btn" id="addscope" title="Ajouter une fenêtre d’oscilloscope">+ Oscillo</button><label class="lbl" style="display:flex;align-items:center;gap:4px" title="Synchroniser la plage de temps de tous les oscilloscopes"><input type="checkbox" id="linkx" checked>Axes liés</label></div>
+    <div class="grp"><button class="btn on" id="gridtog" title="Afficher/masquer la grille" aria-pressed="true">Grille</button></div>
     <div class="grp"><button class="btn" id="undo" title="Annuler (Ctrl+Z)">Annuler</button><button class="btn" id="clear">Nouveau</button></div>
     <div class="grp"><span class="lbl">Durée</span><input class="num" id="tstop" type="text" value="5m" aria-label="Durée de simulation en secondes"><span class="lbl">s</span>
       <span class="lbl">Pas</span><input class="num" id="dtin" type="text" value="auto" aria-label="Pas de calcul en secondes"><span class="lbl">s</span></div>
@@ -622,7 +623,7 @@ function draw(){
   const ink=css('--ink'),acc=css('--accent'),sc=css('--sel'),u=G*view.s;
   /* grille de points */
   cx.fillStyle=css('--dots');const x0=Math.floor(-view.ox/u)-1,x1=Math.ceil((w-view.ox)/u)+1,y0=Math.floor(-view.oy/u)-1,y1=Math.ceil((h-view.oy)/u)+1;
-  if(u>7)for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++){const[px,py]=toS(gx,gy);cx.fillRect(px-.75,py-.75,1.5,1.5)}
+  if(showGrid&&u>7)for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++){const[px,py]=toS(gx,gy);cx.fillRect(px-.75,py-.75,1.5,1.5)}
   /* connexions */
   const cnt=new Map(),bump=(x,y)=>{const k=K(x,y);cnt.set(k,(cnt.get(k)||0)+1)};
   const pts=[];for(const wr of circuit.wires){bump(wr.x1,wr.y1);bump(wr.x2,wr.y2);pts.push([wr.x1,wr.y1],[wr.x2,wr.y2])}
@@ -1052,6 +1053,8 @@ function gutter(g,move,step,reset){
   g.addEventListener('keydown',e=>{const d={ArrowLeft:-1,ArrowUp:-1,ArrowRight:1,ArrowDown:1}[e.key];if(d){e.preventDefault();step(d);saveUI()}})}
 gutter($('gsplit'),e=>{const r=ctr.getBoundingClientRect();splitTo(ui.layout==='side'?(e.clientX-r.left)/r.width:(e.clientY-r.top)/r.height)},d=>splitTo((ui.a||.53)+d*.03),()=>{delete ui.a;applyUI()});
 gutter($('gside'),e=>sideTo(work.getBoundingClientRect().right-e.clientX-3),d=>sideTo((ui.side||300)-d*24),()=>{delete ui.side;applyUI()});
+let showGrid=true;
+$('gridtog').onclick=e=>{showGrid=!showGrid;e.currentTarget.classList.toggle('on',showGrid);e.currentTarget.setAttribute('aria-pressed',showGrid);draw()};
 $('layout').onclick=()=>{ui.layout=ui.layout==='side'?'stack':'side';applyUI();saveUI();requestAnimationFrame(()=>{fit();draw();drawScope()})};
 if(window.ResizeObserver){let rf=0;const ro=new ResizeObserver(()=>{cancelAnimationFrame(rf);rf=requestAnimationFrame(()=>{draw();drawScope()})});ro.observe($('schbox'))}
 applyUI();
