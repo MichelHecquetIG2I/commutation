@@ -1086,4 +1086,12 @@ function boot(){buildPalette();setTool('select');let ok=false;const raw=store.ge
 requestAnimationFrame(boot);
 </script>
 
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .catch(error => console.error('Impossible d’activer le mode hors ligne.', error));
+  });
+}
+</script>
 </body></html>

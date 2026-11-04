@@ -1,0 +1,931 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Commutation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Disposition : barre d'outils, palette de composants à gauche, schéma au-dessus de l'oscilloscope, inspecteur et mesures à droite. */
+:root{
+  --bg:#e9edf1;--panel:#f6f8fa;--panel2:#ffffff;--line:#cdd5dd;--fg:#14202b;--muted:#5d6b79;
+  --accent:#1c58e6;--accent-fg:#ffffff;--sel:#e8541d;--canvas:#fbfcfd;--dots:#c9d1d9;--ink:#1b2b3a;--good:#1e8a52;--bad:#c23a28;
+  --t1:#d4412f;--t2:#1f6fd1;--t3:#1e9a5a;--t4:#bf7a0b;--t5:#8a4fd0;--t6:#0f93a6;--t7:#c2417f;--t8:#5c6b7a;
+  --ui:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1319;--panel:#141c24;--panel2:#18222c;--line:#27343f;--fg:#dce6ee;--muted:#8a9aa8;
+  --accent:#6ea2ff;--accent-fg:#0b1220;--sel:#ff9a5c;--canvas:#10171e;--dots:#25313c;--ink:#cfe0ef;--good:#4fd18b;--bad:#ff7a66;
+  --t1:#ff7a66;--t2:#6aa8ff;--t3:#4fd18b;--t4:#f2b84b;--t5:#b58cff;--t6:#4cd0e0;--t7:#ff7fb3;--t8:#9fb0c0;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1319;--panel:#141c24;--panel2:#18222c;--line:#27343f;--fg:#dce6ee;--muted:#8a9aa8;
+  --accent:#6ea2ff;--accent-fg:#0b1220;--sel:#ff9a5c;--canvas:#10171e;--dots:#25313c;--ink:#cfe0ef;--good:#4fd18b;--bad:#ff7a66;
+  --t1:#ff7a66;--t2:#6aa8ff;--t3:#4fd18b;--t4:#f2b84b;--t5:#b58cff;--t6:#4cd0e0;--t7:#ff7fb3;--t8:#9fb0c0;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 var(--ui);padding-block:0;padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px));overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;min-height:0}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:8px max(16px,env(safe-area-inset-left,0px));background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-weight:600;letter-spacing:.02em;font-size:15px;display:flex;align-items:center;gap:8px}
+.brand i{display:inline-block;width:18px;height:18px;border:2px solid var(--accent);border-radius:3px;position:relative}
+.brand i::after{content:"";position:absolute;left:2px;right:2px;top:7px;height:2px;background:var(--accent);transform:skewY(-22deg)}
+.grp{display:flex;align-items:center;gap:6px}
+.lbl{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600;padding:5px 16px}
+.btn.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.btn.sm{padding:2px 8px;font-size:12px}
+input[type=text],select{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:4px 7px;min-width:0}
+input.num{width:84px;font-family:var(--mono);text-align:right}
+.status{margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:12px;min-width:0;flex:1 1 220px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status.err{color:var(--bad)}.status.ok{color:var(--good)}
+.work{display:grid;grid-template-columns:96px minmax(0,1fr) 7px var(--side,300px);min-height:0}
+.pal{background:var(--panel);border-right:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:5px;overflow:auto}
+.tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;border:1px solid transparent;border-radius:5px;background:transparent;cursor:pointer;font-size:11px;color:var(--muted)}
+.tool:hover{border-color:var(--line);color:var(--fg)}
+.tool.on{border-color:var(--accent);color:var(--fg);background:var(--panel2)}
+.tool canvas{width:56px;height:26px}
+.sep{height:1px;background:var(--line);margin:3px 0}
+.center{display:flex;flex-direction:column;min-height:0;min-width:0}
+.center.sbs{flex-direction:row}
+.sch{position:relative;flex:0 0 var(--a,53%);min-height:90px;min-width:200px;background:var(--canvas)}
+.center>.scope{flex:1 1 0;min-height:90px;min-width:240px}
+.gut{flex:0 0 7px;background:var(--panel);border:0 solid var(--line);border-width:1px 0;cursor:row-resize;touch-action:none;position:relative;z-index:2}
+.gut::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:3px;margin:-1px 0 0 -17px;border-radius:2px;background:var(--line)}
+.center.sbs>.gut,.gv{cursor:col-resize;border-width:0 1px}
+.center.sbs>.gut::after,.gv::after{width:3px;height:34px;margin:-17px 0 0 -1px}
+.gut:hover,.gut.act,.gut:focus-visible{background:var(--panel2)}
+.gut:hover::after,.gut.act::after,.gut:focus-visible::after{background:var(--accent)}
+.sch canvas,.scope canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hint{position:absolute;left:10px;bottom:8px;color:var(--muted);font-size:11px;background:var(--canvas);padding:1px 6px;border-radius:4px;pointer-events:none;max-width:90%}
+.scope{position:relative;min-height:0;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);background:var(--canvas);overflow:hidden}
+.sbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:5px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.sbar label{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.splot{position:relative;min-height:0}
+.side{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.side h3{margin:0 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.field{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:5px}
+.field label{color:var(--fg)}
+.field input[type=text]{width:110px;font-family:var(--mono);text-align:right}
+.field select{max-width:150px}
+.row{display:flex;flex-wrap:wrap;gap:5px}
+.empty{color:var(--muted);font-size:12px}
+.pr{display:flex;align-items:center;gap:7px;padding:3px 0;min-width:0}
+.pr .sw{width:10px;height:10px;border-radius:2px;flex:none}
+.pr span.n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr button{border:0;background:none;cursor:pointer;color:var(--muted);padding:0 4px}
+.pr button:hover{color:var(--bad)}
+.meas{border-top:1px solid var(--line);padding:6px 0}
+.meas b{display:flex;align-items:center;gap:6px;font-weight:500}
+.meas b i{width:10px;height:3px;border-radius:2px}
+.meas dl{margin:4px 0 0;display:grid;grid-template-columns:auto 1fr auto 1fr;gap:1px 8px;font-family:var(--mono);font-size:12px}
+.meas dt{color:var(--muted)}.meas dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:12px}
+.dlg{position:fixed;inset:0;display:grid;place-items:center;background:rgba(8,12,16,.55);z-index:50;padding:16px}
+.dlg[hidden]{display:none}
+.dlgbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;width:min(560px,100%);display:grid;gap:10px}
+.dlgbox textarea{height:260px;width:100%;font:12px var(--mono);background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:8px;resize:vertical}
+@media (max-width:900px){
+  body{overflow:auto}.app{height:auto;min-height:100%}
+  .work{grid-template-columns:minmax(0,1fr)}
+  .pal{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}
+  .tool{flex:none;min-width:70px}.sep{width:1px;height:auto;margin:0 3px}
+  .center,.center.sbs{flex-direction:column}.sch{flex:0 0 360px}.center>.scope{flex:0 0 460px}.gut{display:none}
+  .side{border-left:0;border-top:1px solid var(--line)}
+  .status{margin-left:0;flex-basis:100%;text-align:left}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<div class="app">
+  <header class="top">
+    <div class="brand"><i></i>Commutation</div>
+    <div class="grp"><span class="lbl">Exemple</span>
+      <select id="preset" aria-label="Charger un exemple">
+        <option value="">Choisir…</option>
+        <option value="buck">Hacheur série (buck)</option>
+        <option value="boost">Hacheur parallèle (boost)</option>
+        <option value="hbridge">Onduleur monophasé en pont</option>
+        <option value="inv3">Onduleur triphasé MLI sinus</option>
+        <option value="rect3">Redresseur triphasé à diodes</option>
+        <option value="buckpi">Hacheur série régulé (PI)</option>
+        <option value="spwmblk">Onduleur monophasé, MLI par blocs</option>
+        <option value="flyback">Alimentation flyback (transformateur)</option>
+        <option value="scr1">Pont de Graetz à thyristors</option>
+        <option value="scr3">Redresseur triphasé commandé</option>
+      </select></div>
+    <div class="grp"><button class="btn" id="save" title="Enregistrer le circuit dans un fichier">Enregistrer</button><button class="btn" id="open" title="Ouvrir un fichier de circuit">Ouvrir…</button><input type="file" id="file" accept=".json,application/json" hidden></div>
+    <div class="grp"><button class="btn" id="layout" title="Placer le schéma et l’oscilloscope côte à côte ou l’un sous l’autre">Côte à côte</button></div>
+    <div class="grp"><button class="btn" id="undo" title="Annuler (Ctrl+Z)">Annuler</button><button class="btn" id="clear">Nouveau</button></div>
+    <div class="grp"><span class="lbl">Durée</span><input class="num" id="tstop" type="text" value="5m" aria-label="Durée de simulation en secondes"><span class="lbl">s</span>
+      <span class="lbl">Pas</span><input class="num" id="dtin" type="text" value="auto" aria-label="Pas de calcul en secondes"><span class="lbl">s</span></div>
+    <button class="btn primary" id="run">Simuler</button>
+    <div class="status" id="status" role="status">Prêt</div>
+  </header>
+  <div class="work">
+    <nav class="pal" id="pal" aria-label="Composants"></nav>
+    <section class="center">
+      <div class="sch" id="schbox"><canvas id="sch" tabindex="0" aria-label="Éditeur de schéma"></canvas><div class="hint" id="hint"></div></div>
+      <div class="gut" id="gsplit" role="separator" tabindex="0" aria-label="Redimensionner l’éditeur de circuit et l’oscilloscope"></div>
+      <div class="scope">
+        <div class="sbar">
+          <span class="lbl">Oscilloscope</span>
+          <span class="grp" style="gap:0"><button class="btn sm on" id="mt" style="border-radius:5px 0 0 5px">Temps</button><button class="btn sm" id="ms" style="border-radius:0 5px 5px 0;margin-left:-1px">Spectre</button></span>
+          <button class="btn sm" id="vall">Tout</button><button class="btn sm" id="vss">Régime établi</button>
+          <button class="btn sm" id="vin">Zoom +</button><button class="btn sm" id="vout">Zoom −</button>
+          <label><input type="checkbox" id="lanes" checked>Pistes séparées</label>
+          <span class="grp" id="specctl" hidden><label>Fmax<input class="num" id="fmax" type="text" value="auto" aria-label="Fréquence maximale du spectre en Hz" style="width:64px"></label>
+            <button class="btn sm" id="align" title="Ajuste la plage à un nombre entier de périodes de la fondamentale">Périodes entières</button>
+            <label>Fenêtre<select id="win" aria-label="Fenêtre d'analyse"><option value="none">Aucune (FFT classique)</option><option value="hann">Hann</option></select></label>
+            <label><input type="checkbox" id="db">dB</label></span>
+          <span class="note" id="cur"></span>
+        </div>
+        <div class="splot" id="splot"><canvas id="scope" aria-label="Oscilloscope"></canvas></div>
+      </div>
+    </section>
+    <div class="gut gv" id="gside" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Redimensionner le panneau de droite"></div>
+    <aside class="side">
+      <section><h3>Composant</h3><div id="insp"></div></section>
+      <section><h3>Sondes</h3><div id="probes"></div></section>
+      <section><h3>Mesures sur la plage affichée</h3>
+        <div class="grp" style="margin-bottom:6px"><span class="lbl">Fondamentale</span><input class="num" id="f1" type="text" value="50" aria-label="Fréquence fondamentale en Hz" style="width:60px"><span class="lbl">Hz</span><button class="btn sm" id="thdbtn">Calculer le THD</button></div>
+        <div id="meas"></div></section>
+    </aside>
+  </div>
+</div>
+<div id="dlg" class="dlg" hidden><div class="dlgbox" role="dialog" aria-label="Enregistrer le circuit"><h3 style="margin:0">Enregistrer le circuit</h3>
+  <p class="note" style="margin:0">Le téléchargement direct n’est pas disponible dans cette vue. Copiez ce texte dans un fichier .json, puis rouvrez-le avec « Ouvrir ».</p>
+  <textarea id="dlgtxt" readonly spellcheck="false" aria-label="Contenu du fichier"></textarea>
+  <div class="row"><button class="btn" id="dlgcopy">Copier</button><button class="btn" id="dlgclose">Fermer</button></div></div></div>
+<script>
+/* ===== Commutation : noyau (netlist, solveur MNA, mesures, exemples) ===== */
+const DEFAULTS={
+  R:{R:10}, L:{L:1e-3,i0:0}, C:{C:100e-6,v0:0},
+  Vdc:{V:48}, Vac:{amp:325,f:50,ph:0,off:0}, Idc:{I:1}, Iac:{amp:1,f:50,ph:0,off:0},
+  D:{Vf:0.7,Ron:0.01},
+  XF:{Lp:1e-3,n:1,k:0.99,inv:0},
+  SCR:{mode:'angle',Vf:1,Ron:0.01,alpha:30,ph:0,fref:50,width:60},
+  SIN:{amp:1,f:50,ph:0,off:0}, CST:{value:0.5}, TRI:{f:20000,min:0,max:1}, CMP:{high:1,low:0,hyst:0},
+  SUM:{s1:1,s2:-1}, GAIN:{K:1}, PI:{Kp:0.01,Ki:20,min:0,max:1,i0:0}, SV:{K:1}, SI:{K:1,Rs:1e-3},
+  SW:{mode:'pwm',fsw:20000,duty:0.5,m:0.8,fref:50,ph:0,inv:0,body:1,Ron:0.01,Vf:0.7}
+};
+const PREFIX={R:'R',L:'L',C:'C',Vdc:'V',Vac:'E',D:'D',SW:'S',SCR:'T',Idc:'I',Iac:'Ia',XF:'TR',SIN:'Ref',CST:'Cst',TRI:'Tri',CMP:'Cmp',SUM:'Sum',GAIN:'Gn',PI:'PI',SV:'Cv',SI:'Ci',gnd:'GND'};
+function nextName(comps,type){const px=PREFIX[type];let n=1;const used=new Set(comps.map(c=>c.name));while(used.has(px+n))n++;return type==='gnd'?'GND':px+n}
+function pinDefs(c){const t=c.type,p=Object.assign({},DEFAULTS[t],c.p);
+  if(t==='gnd')return[{x:0,y:0,r:'gnd'}];
+  switch(t){
+    case'SIN':case'CST':case'TRI':return[{x:2,y:0,r:'o'}];
+    case'CMP':case'SUM':return[{x:-2,y:-1,r:'i1'},{x:-2,y:1,r:'i2'},{x:2,y:0,r:'o'}];
+    case'GAIN':case'PI':return[{x:-2,y:0,r:'i1'},{x:2,y:0,r:'o'}]}
+  if(t==='XF')return[{x:-2,y:-1,r:'a'},{x:-2,y:1,r:'b'},{x:2,y:-1,r:'c'},{x:2,y:1,r:'d'}];
+  const d=[{x:-2,y:0,r:'a'},{x:2,y:0,r:'b'}];
+  if(t==='SW'&&p.mode==='ext')d.push({x:0,y:-2,r:'g'});
+  if(t==='SCR'&&p.mode==='ext')d.push({x:1,y:1,r:'g'});
+  if(t==='SV'||t==='SI')d.push({x:0,y:-2,r:'o'});
+  return d}
+function pinsOf(c){const rot=((c.rot%4)+4)%4;
+  return pinDefs(c).map(d=>{let x=d.x,y=d.y;for(let i=0;i<rot;i++){const t=x;x=-y;y=t}return[c.x+x,c.y+y]})}
+const BLOCK_TYPES=new Set(['SIN','CST','TRI','CMP','SUM','GAIN','PI']);
+const K=(x,y)=>x+','+y;
+function makeUF(){const p=new Map();
+  const f=k=>{if(!p.has(k))p.set(k,k);let r=k;while(p.get(r)!==r)r=p.get(r);let c=k;while(p.get(c)!==r){const n=p.get(c);p.set(c,r);c=n}return r};
+  return{f,u:(a,b)=>{const ra=f(a),rb=f(b);if(ra!==rb)p.set(ra,rb)}}}
+function onInterior(w,x,y){
+  if(w.x1===w.x2){if(x!==w.x1)return false;const lo=Math.min(w.y1,w.y2),hi=Math.max(w.y1,w.y2);return y>lo&&y<hi}
+  if(w.y1===w.y2){if(y!==w.y1)return false;const lo=Math.min(w.x1,w.x2),hi=Math.max(w.x1,w.x2);return x>lo&&x<hi}
+  return false}
+/* Connectivité : extrémités de fils et broches se connectent entre elles ; un croisement de deux fils sans extrémité ne connecte pas. */
+function buildUF(circuit){
+  const uf=makeUF(),pts=[];
+  for(const w of circuit.wires){uf.u(K(w.x1,w.y1),K(w.x2,w.y2));pts.push([w.x1,w.y1],[w.x2,w.y2])}
+  for(const c of circuit.comps)for(const p of pinsOf(c)){pts.push(p);uf.f(K(p[0],p[1]))}
+  for(const [x,y] of pts)for(const w of circuit.wires)if(onInterior(w,x,y))uf.u(K(x,y),K(w.x1,w.y1));
+  return uf}
+function compile(circuit){
+  const uf=buildUF(circuit);
+  const gnds=circuit.comps.filter(c=>c.type==='gnd');
+  if(!gnds.length)return{error:'Ajoutez une masse (GND) au circuit.'};
+  for(let i=1;i<gnds.length;i++)uf.u(K(gnds[0].x,gnds[0].y),K(gnds[i].x,gnds[i].y));
+  const isPow=r=>r==='a'||r==='b'||r==='c'||r==='d'||r==='gnd',P=new Map(),powRoots=new Map(),sigRoots=new Map();
+  for(const c of circuit.comps){const defs=pinDefs(c),ps=pinsOf(c);
+    const pins=defs.map((d,i)=>({r:d.r,root:uf.f(K(ps[i][0],ps[i][1]))}));P.set(c.id,pins);
+    for(const q of pins)(isPow(q.r)?powRoots:sigRoots).set(q.root,c.name)}
+  for(const [root,name] of sigRoots)if(powRoots.has(root))return{error:'Un signal de commande ('+name+') est relié à un nœud de puissance ('+powRoots.get(root)+').'};
+  const ids=new Map();ids.set(uf.f(K(gnds[0].x,gnds[0].y)),0);
+  const nodeOf=root=>{if(!ids.has(root))ids.set(root,ids.size);return ids.get(root)};
+  const sids=new Map(),sigOf=root=>{if(!sids.has(root))sids.set(root,sids.size);return sids.get(root)};
+  const elems=[],blocks=[];let nv=0;
+  for(const c of circuit.comps){
+    if(c.type==='gnd')continue;
+    const e={id:c.id,name:c.name,type:c.type,p:Object.assign({},DEFAULTS[c.type],c.p)},by={};
+    for(const q of P.get(c.id))by[q.r]=q.root;
+    if(BLOCK_TYPES.has(c.type)){
+      if(c.type==='TRI'&&!(e.p.f>0))return{error:c.name+' : la fréquence doit être positive.'};
+      e.in=[];if(by.i1!==undefined)e.in.push(sigOf(by.i1));if(by.i2!==undefined)e.in.push(sigOf(by.i2));e.out=sigOf(by.o);blocks.push(e);continue}
+    e.a=nodeOf(by.a);e.b=nodeOf(by.b);
+    if(by.c!==undefined){e.c=nodeOf(by.c);e.d=nodeOf(by.d)}
+    if(by.g!==undefined)e.gnet=sigOf(by.g);if(by.o!==undefined)e.out=sigOf(by.o);
+    if((c.type==='Vdc'||c.type==='Vac')){
+      if(e.a===e.b)return{error:'La source '+c.name+' est en court-circuit.'};
+      e.k=nv++}
+    if(c.type==='R'&&!(e.p.R>0))return{error:c.name+' : la résistance doit être positive.'};
+    if(c.type==='XF'&&!(e.p.Lp>0&&e.p.n>0))return{error:c.name+' : l’inductance primaire et le rapport doivent être positifs.'};
+    if(c.type==='L'&&!(e.p.L>0))return{error:c.name+' : l’inductance doit être positive.'};
+    if(c.type==='C'&&!(e.p.C>0))return{error:c.name+' : la capacité doit être positive.'};
+    if(c.type==='SCR'&&e.p.mode!=='ext'&&!(e.p.fref>0))return{error:c.name+' : la fréquence de référence doit être positive.'};
+    if(c.type==='SW'&&e.p.mode!=='ext'&&!(e.p.fsw>0))return{error:c.name+' : la fréquence de découpage doit être positive.'};
+    elems.push(e)}
+  if(!elems.length)return{error:'Le circuit est vide.'};
+  const nSig=sids.size,drv=new Array(nSig).fill(null);
+  for(const e of blocks.concat(elems.filter(e=>e.out!==undefined))){
+    if(drv[e.out])return{error:'Deux sorties sont reliées entre elles : '+drv[e.out].name+' et '+e.name+'.'};drv[e.out]=e}
+  const deps=new Map();
+  for(const b of blocks){const d=new Set();for(const n of b.in){const s=drv[n];if(s&&BLOCK_TYPES.has(s.type))d.add(s)}deps.set(b,d)}
+  const order=[],done=new Set();let prog=true;
+  while(order.length<blocks.length&&prog){prog=false;for(const b of blocks){if(done.has(b))continue;let ok=true;for(const d of deps.get(b))if(!done.has(d)){ok=false;break}if(ok){done.add(b);order.push(b);prog=true}}}
+  if(order.length<blocks.length)return{error:'Boucle algébrique entre blocs de commande ('+blocks.find(b=>!done.has(b)).name+'). Une boucle de régulation doit passer par un capteur.'};
+  return{N:ids.size,nv,elems,blocks,order,nSig,uf}}
+function autoDt(net){
+  let f=0;
+  for(const e of net.elems.concat(net.blocks)){if(e.type==='TRI')f=Math.max(f,e.p.f*200);if(e.type==='SIN')f=Math.max(f,e.p.f*400);if(e.type==='SW'&&e.p.mode!=='ext')f=Math.max(f,e.p.fsw*200,e.p.mode==='spwm'?e.p.fref*200:0);if(e.type==='Vac'||e.type==='Iac')f=Math.max(f,e.p.f*400);if(e.type==='SCR'&&e.p.mode!=='ext')f=Math.max(f,e.p.fref*400)}
+  if(f===0){let tau=Infinity;for(const e of net.elems){if(e.type==='R')for(const o of net.elems){if(o.type==='C')tau=Math.min(tau,e.p.R*o.p.C);if(o.type==='L')tau=Math.min(tau,o.p.L/e.p.R)}}
+    return isFinite(tau)?tau/20:1e-5}
+  return 1/f}
+const GMIN=1e-9,GOFF=1e-9;
+function solveLin(A,b,n){
+  for(let k=0;k<n;k++){
+    let p=k,m=Math.abs(A[k*n+k]);
+    for(let i=k+1;i<n;i++){const v=Math.abs(A[i*n+k]);if(v>m){m=v;p=i}}
+    if(m<1e-300)return false;
+    if(p!==k){for(let j=k;j<n;j++){const t=A[k*n+j];A[k*n+j]=A[p*n+j];A[p*n+j]=t}const t=b[k];b[k]=b[p];b[p]=t}
+    const piv=A[k*n+k];
+    for(let i=k+1;i<n;i++){const f=A[i*n+k]/piv;if(f!==0){for(let j=k;j<n;j++)A[i*n+j]-=f*A[k*n+j];b[i]-=f*b[k]}}}
+  for(let i=n-1;i>=0;i--){let s=b[i];for(let j=i+1;j<n;j++)s-=A[i*n+j]*b[j];b[i]=s/A[i*n+i]}
+  return true}
+function Sim(net,dt){
+  this.net=net;this.dt=dt;this.nn=net.N-1;this.n=this.nn+net.nv;
+  this.A=new Float64Array(this.n*this.n);this.b=new Float64Array(this.n);
+  this.sig=new Float64Array(net.nSig||0);
+  for(const e of net.elems){e.iab=0;e.v=0;e.gate=false;e.on=false;e.dOn=false;e.o=0;
+    if(e.type==='L')e.i=e.p.i0||0;if(e.type==='C')e.vc=e.p.v0||0;
+    if(e.type==='XF'){const p=e.p,L1=p.Lp,L2=p.Lp/(p.n*p.n),kk=Math.min(Math.max(p.k,0),0.9999),M=(p.inv?-1:1)*kk*Math.sqrt(L1*L2),D=L1*L2-M*M;e.g11=dt*L2/D;e.g12=-dt*M/D;e.g22=dt*L1/D;e.i1=0;e.i2=0;e.v2=0}}
+  for(const b of net.blocks){b.o=0;b.state=0;if(b.type==='PI')b.I=b.p.i0||0}}
+Sim.prototype.signals=function(t){
+  const sig=this.sig,net=this.net,dt=this.dt;
+  for(const e of net.elems)if(e.out!==undefined)sig[e.out]=e.o||0;
+  for(const b of net.order){const p=b.p,i1=b.in.length>0?sig[b.in[0]]:0,i2=b.in.length>1?sig[b.in[1]]:0;let o=0;
+    switch(b.type){
+      case'SIN':o=p.off+p.amp*Math.sin(2*Math.PI*p.f*t+p.ph*Math.PI/180);break;
+      case'CST':o=p.value;break;
+      case'TRI':{const ph=(t*p.f)%1,c=ph<0.5?2*ph:2-2*ph;o=p.min+(p.max-p.min)*c;break}
+      case'CMP':{const h=p.hyst||0;if(b.state){if(i1<i2-h)b.state=0}else if(i1>i2+h)b.state=1;o=b.state?p.high:p.low;break}
+      case'SUM':o=p.s1*i1+p.s2*i2;break;
+      case'GAIN':o=p.K*i1;break;
+      case'PI':{let I=b.I+p.Ki*i1*dt,u=p.Kp*i1+I;if(u>p.max){u=p.max;I=u-p.Kp*i1}else if(u<p.min){u=p.min;I=u-p.Kp*i1}b.I=I;o=u;break}}
+    b.o=o;sig[b.out]=o}};
+Sim.prototype.gateAt=function(e,t){
+  const p=e.p;let d;
+  if(p.mode==='spwm')d=0.5+0.5*p.m*Math.sin(2*Math.PI*p.fref*t+p.ph*Math.PI/180);else d=p.duty;
+  const ph=(t*p.fsw)%1,c=ph<0.5?2*ph:2-2*ph;const g=d>c;return p.inv?!g:g};
+Sim.prototype.step=function(t){
+  const {n,nn,A,b,dt}=this,els=this.net.elems;
+  this.signals(t);
+  for(const e of els){const p=e.p;
+    if(e.type==='SW')e.gate=p.mode==='ext'?((this.sig[e.gnet]>0.5)!==!!p.inv):this.gateAt(e,t);
+    else if(e.type==='SCR'){if(p.mode==='ext')e.gate=this.sig[e.gnet]>0.5;else{const x=((t*p.fref-(p.ph+p.alpha)/360)%1+1)%1;e.gate=x*360<p.width}}}
+  const G=(a,bn,g)=>{if(a>0){A[(a-1)*n+a-1]+=g;if(bn>0)A[(a-1)*n+bn-1]-=g}if(bn>0){A[(bn-1)*n+bn-1]+=g;if(a>0)A[(bn-1)*n+a-1]-=g}};
+  const I=(a,bn,i)=>{if(a>0)b[a-1]-=i;if(bn>0)b[bn-1]+=i};
+  for(let it=0;it<40;it++){
+    A.fill(0);b.fill(0);
+    for(let i=0;i<nn;i++)A[i*n+i]=GMIN;
+    for(const e of els){const p=e.p,a=e.a,bn=e.b;
+      switch(e.type){
+        case'R':G(a,bn,1/p.R);break;
+        case'C':{const g=p.C/dt;G(a,bn,g);I(a,bn,-g*e.vc);break}
+        case'L':{const g=dt/p.L;G(a,bn,g);I(a,bn,e.i);break}
+        case'D':case'SCR':{const g=1/Math.max(p.Ron,1e-6);if(e.on){G(a,bn,g);I(a,bn,-g*p.Vf)}else G(a,bn,GOFF);break}
+        case'SW':{const g=1/Math.max(p.Ron,1e-6);G(a,bn,e.gate?g:GOFF);if(p.body&&e.dOn){G(a,bn,g);I(a,bn,g*p.Vf)}break}
+        case'XF':{const nd=[[a,bn],[e.c,e.d]],g=[[e.g11,e.g12],[e.g12,e.g22]],ip=[e.i1,e.i2];
+          for(let j=0;j<2;j++){const pj=nd[j][0],mj=nd[j][1];
+            for(let q=0;q<2;q++){const pk=nd[q][0],mk=nd[q][1],gg=g[j][q];
+              if(pj>0){if(pk>0)A[(pj-1)*n+pk-1]+=gg;if(mk>0)A[(pj-1)*n+mk-1]-=gg}
+              if(mj>0){if(pk>0)A[(mj-1)*n+pk-1]-=gg;if(mk>0)A[(mj-1)*n+mk-1]+=gg}}
+            I(pj,mj,ip[j])}
+          break}
+        case'SI':G(a,bn,1/Math.max(p.Rs,1e-6));break;
+        case'Idc':I(a,bn,p.I);break;
+        case'Iac':I(a,bn,p.off+p.amp*Math.sin(2*Math.PI*p.f*t+p.ph*Math.PI/180));break;
+        case'Vdc':case'Vac':{
+          const r=nn+e.k;if(a>0){A[(a-1)*n+r]+=1;A[r*n+a-1]+=1}if(bn>0){A[(bn-1)*n+r]-=1;A[r*n+bn-1]-=1}
+          b[r]=e.type==='Vdc'?p.V:p.off+p.amp*Math.sin(2*Math.PI*p.f*t+p.ph*Math.PI/180);break}}}
+    if(!solveLin(A,b,n))return false;
+    let ch=false;
+    for(const e of els){const va=e.a>0?b[e.a-1]:0,vb=e.b>0?b[e.b-1]:0,v=va-vb,p=e.p;e.v=v;
+      if(e.type==='D'||e.type==='SCR'){const g=1/Math.max(p.Ron,1e-6);
+        if(e.on){if(g*(v-p.Vf)<0){e.on=false;ch=true}}else if(v>p.Vf&&(e.type==='D'||e.gate)){e.on=true;ch=true}}
+      else if(e.type==='SW'&&p.body){const g=1/Math.max(p.Ron,1e-6);
+        if(e.dOn){if(-g*(v+p.Vf)<0){e.dOn=false;ch=true}}else if(-v>p.Vf){e.dOn=true;ch=true}}}
+    if(!ch)break}
+  for(const e of els){const p=e.p,va=e.a>0?b[e.a-1]:0,vb=e.b>0?b[e.b-1]:0,v=va-vb;e.v=v;e.va=va;e.vb=vb;
+    switch(e.type){
+      case'R':e.iab=v/p.R;break;
+      case'C':{const g=p.C/dt;e.iab=g*(v-e.vc);e.vc=v;break}
+      case'L':{e.i+=dt/p.L*v;e.iab=e.i;break}
+      case'D':case'SCR':{const g=1/Math.max(p.Ron,1e-6);e.iab=e.on?g*(v-p.Vf):GOFF*v;break}
+      case'SW':{const g=1/Math.max(p.Ron,1e-6);let i=(e.gate?g:GOFF)*v;if(p.body&&e.dOn)i+=g*(v+p.Vf);e.iab=i;break}
+      case'Idc':e.iab=p.I;break;
+      case'Iac':e.iab=p.off+p.amp*Math.sin(2*Math.PI*p.f*t+p.ph*Math.PI/180);break;
+      case'XF':{const vc=e.c>0?b[e.c-1]:0,vd=e.d>0?b[e.d-1]:0,v2=vc-vd,i1=e.i1+e.g11*v+e.g12*v2,i2=e.i2+e.g12*v+e.g22*v2;e.v2=v2;e.i1=i1;e.i2=i2;e.iab=i1;break}
+      case'SV':e.iab=0;e.o=p.K*v;break;
+      case'SI':e.iab=v/Math.max(p.Rs,1e-6);e.o=p.K*e.iab;break;
+      case'Vdc':case'Vac':e.iab=-b[nn+e.k]}}
+  return true};
+/* Exécution par tranches de temps pour ne pas figer l'interface */
+function Runner(net,dt,nsteps,probes){
+  this.sim=new Sim(net,dt);this.dt=dt;this.N=nsteps;this.k=0;this.err=null;
+  const byId=new Map(net.elems.concat(net.blocks).map(e=>[e.id,e]));
+  this.pr=probes.map(p=>({e:byId.get(p.comp),kind:p.kind}));
+  this.data=this.pr.map(()=>new Float32Array(nsteps))}
+Runner.prototype.run=function(ms){
+  const t0=performance.now();
+  while(this.k<this.N){
+    for(let q=0;q<128&&this.k<this.N;q++){
+      const t=(this.k+1)*this.dt;
+      if(!this.sim.step(t)){this.err='Matrice singulière : vérifiez que chaque partie du circuit est reliée à la masse.';return true}
+      for(let j=0;j<this.pr.length;j++){const pr=this.pr[j],e=pr.e;
+        this.data[j][this.k]=!e?0:pr.kind==='v'?e.v:pr.kind==='va'?e.va:pr.kind==='vb'?e.vb:pr.kind==='g'?(e.gate?1:0):pr.kind==='o'?e.o:pr.kind==='v2'?e.v2:pr.kind==='i2'?-e.i2:e.iab}
+      this.k++}
+    if(performance.now()-t0>ms)break}
+  return this.k>=this.N};
+function stats(a,i0,i1){
+  i0=Math.max(0,i0|0);i1=Math.min(a.length,i1|0);const n=i1-i0;if(n<1)return null;
+  let s=0,s2=0,mn=Infinity,mx=-Infinity;
+  for(let i=i0;i<i1;i++){const x=a[i];s+=x;s2+=x*x;if(x<mn)mn=x;if(x>mx)mx=x}
+  return{mean:s/n,rms:Math.sqrt(s2/n),min:mn,max:mx,pp:mx-mn}}
+function thd(a,i0,i1,dt,f1,H){
+  H=H||40;const T=1/f1,np=Math.floor((i1-i0)*dt*f1+1e-6);if(np<1)return null;
+  const n=Math.round(np*T/dt),s0=i1-n;const C=[];
+  for(let h=1;h<=H;h++){const w=2*Math.PI*h*f1*dt,cw=Math.cos(w),sw=Math.sin(w);let c=1,s=0,re=0,im=0;
+    for(let i=0;i<n;i++){const x=a[s0+i];re+=x*c;im+=x*s;const c2=c*cw-s*sw;s=s*cw+c*sw;c=c2}
+    C.push(2/n*Math.hypot(re,im))}
+  let q=0;for(let h=1;h<H;h++)q+=C[h]*C[h];
+  return{thd:C[0]>1e-9?Math.sqrt(q)/C[0]:null,fund:C[0]}}
+
+/* ===== FFT (radix 2) et spectre d'amplitude crête ===== */
+function fft(re,im){const n=re.length;
+  for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
+  for(let len=2;len<=n;len<<=1){const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang),hl=len>>1;
+    for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let j=0;j<hl;j++){const a=i+j,b=a+hl,tr=re[b]*cr-im[b]*ci,ti=re[b]*ci+im[b]*cr;
+      re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t}}}}
+function fftAny(re,im){const n=re.length;if((n&(n-1))===0){fft(re,im);return}
+  let m=1;while(m<2*n-1)m<<=1;
+  const wr=new Float64Array(n),wi=new Float64Array(n);
+  for(let k=0;k<n;k++){const a=Math.PI*((k*k)%(2*n))/n;wr[k]=Math.cos(a);wi[k]=-Math.sin(a)}
+  const ar=new Float64Array(m),ai=new Float64Array(m),br=new Float64Array(m),bi=new Float64Array(m);
+  for(let k=0;k<n;k++){ar[k]=re[k]*wr[k]-im[k]*wi[k];ai[k]=re[k]*wi[k]+im[k]*wr[k]}
+  br[0]=wr[0];bi[0]=-wi[0];for(let k=1;k<n;k++){br[k]=br[m-k]=wr[k];bi[k]=bi[m-k]=-wi[k]}
+  fft(ar,ai);fft(br,bi);
+  for(let i=0;i<m;i++){const r=ar[i]*br[i]-ai[i]*bi[i],q=ar[i]*bi[i]+ai[i]*br[i];ar[i]=r;ai[i]=-q}
+  fft(ar,ai);
+  for(let k=0;k<n;k++){const cr=ar[k]/m,ci=-ai[k]/m;re[k]=cr*wr[k]-ci*wi[k];im[k]=cr*wi[k]+ci*wr[k]}}
+/* win : 'none' = FFT classique (aucune fenêtre, N points, pas de bourrage de zéros) ; 'hann' = fenêtre de Hann avec bourrage de zéros */
+function spectrum(a,i0,i1,dt,win,fmax){
+  i0=Math.max(0,i0|0);i1=Math.min(a.length,i1|0);const n=i1-i0;if(n<8)return null;
+  const m=Math.max(1,Math.ceil(n/524288)),ne=Math.floor(n/m),de=dt*m;const classic=win!=='hann';let nf=ne;if(!classic){nf=1;while(nf<ne*2)nf<<=1}
+  const re=new Float64Array(nf),im=new Float64Array(nf);let sw=0,mean=0;
+  for(let k=0;k<ne*m;k++)mean+=a[i0+k];mean/=ne*m;
+  for(let k=0;k<ne;k++){let s=0;for(let j=0;j<m;j++)s+=a[i0+k*m+j];s=s/m-mean;const w=classic?1:0.5-0.5*Math.cos(2*Math.PI*k/ne);re[k]=s*w;sw+=w}
+  fftAny(re,im);const df=1/(nf*de),nyq=1/(2*de),fm=Math.min(fmax>0?fmax:nyq,nyq),kmax=Math.min(nf/2,Math.max(4,Math.floor(fm/df)));
+  const amps=new Float32Array(kmax+1);for(let k=0;k<=kmax;k++)amps[k]=(k===0?1:2)*Math.hypot(re[k],im[k])/sw;
+  amps[0]=Math.abs(mean);
+  return{df,amps,nyq,fm:kmax*df,ne,de,T:ne*de,classic}}
+function peaks(sp,count){
+  const a=sp.amps,out=[];let mx=0;for(let k=1;k<a.length;k++)if(a[k]>mx)mx=a[k];
+  if(a[0]>1e-9&&a[0]>=a[1])out.push({f:0,a:a[0]});
+  for(let k=1;k<a.length-1;k++)if(a[k]>a[k-1]&&a[k]>=a[k+1]&&a[k]>1e-3*Math.max(mx,a[0]*0.0)&&a[k]>1e-9){
+    const al=a[k-1],be=a[k],ga=a[k+1],den=al-2*be+ga,dl=den!==0?0.5*(al-ga)/den:0;out.push({f:(k+dl)*sp.df,a:be-0.25*(al-ga)*dl})}
+  out.sort((x,y)=>y.a-x.a);return out.slice(0,count||5)}
+/* ===== Exemples ===== */
+function Builder(){this.comps=[];this.wires=[];this.id=1}
+Builder.prototype.add=function(type,x,y,rot,p,name){
+  const c={id:this.id++,type,x,y,rot:rot||0,p:Object.assign({},DEFAULTS[type]||{},p||{}),name:name||nextName(this.comps,type)};
+  this.comps.push(c);return c};
+Builder.prototype.wire=function(x1,y1,x2,y2){if(x1===x2&&y1===y2)return;
+  if(x1!==x2&&y1!==y2){this.wires.push({x1,y1,x2,y2:y1},{x1:x2,y1:y1,x2,y2})}else this.wires.push({x1,y1,x2,y2})};
+Builder.prototype.out=function(extra){
+  const by=n=>this.comps.find(c=>c.name===n).id;
+  return{comps:this.comps,wires:this.wires,tstop:extra.tstop,probes:extra.probes.map(([n,k])=>({comp:by(n),kind:k})),title:extra.title}};
+const PRESETS={
+ buck(){const b=new Builder();
+  b.add('Vdc',6,12,1,{V:48},'Vin');b.add('SW',12,10,0,{mode:'pwm',fsw:20000,duty:0.5},'S1');
+  b.add('D',14,12,3,{},'D1');b.add('L',18,10,0,{L:200e-6},'L1');b.add('C',22,12,1,{C:100e-6},'C1');
+  b.add('R',26,12,1,{R:5},'R1');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,10,10);b.wire(14,10,16,10);b.wire(20,10,26,10);b.wire(6,14,26,14);
+  return b.out({title:'Hacheur série (buck)',tstop:5e-3,probes:[['R1','v'],['L1','i'],['S1','g']]})},
+ boost(){const b=new Builder();
+  b.add('Vdc',6,12,1,{V:24},'Vin');b.add('L',10,10,0,{L:300e-6},'L1');b.add('SW',12,12,1,{mode:'pwm',fsw:20000,duty:0.5},'S1');
+  b.add('D',16,10,0,{},'D1');b.add('C',20,12,1,{C:220e-6},'C1');b.add('R',24,12,1,{R:20},'R1');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,8,10);b.wire(12,10,14,10);b.wire(18,10,24,10);b.wire(6,14,24,14);
+  return b.out({title:'Hacheur parallèle (boost)',tstop:10e-3,probes:[['R1','v'],['L1','i']]})},
+ hbridge(){const b=new Builder();
+  b.add('Vdc',6,12,1,{V:400},'Vdc');b.add('gnd',6,16,0,{},'GND');
+  b.wire(6,10,6,8);b.wire(6,8,28,8);b.wire(6,14,6,16);b.wire(6,16,28,16);
+  const sp={mode:'spwm',fsw:10000,m:0.9,fref:50};
+  b.add('SW',12,10,1,Object.assign({ph:0,inv:0},sp),'S1');b.add('SW',12,14,1,Object.assign({ph:0,inv:1},sp),'S2');
+  b.add('SW',28,10,1,Object.assign({ph:180,inv:0},sp),'S3');b.add('SW',28,14,1,Object.assign({ph:180,inv:1},sp),'S4');
+  b.wire(12,12,14,12);b.add('R',16,12,0,{R:10},'R1');b.wire(18,12,20,12);b.add('L',22,12,0,{L:20e-3},'L1');b.wire(24,12,28,12);
+  return b.out({title:'Onduleur monophasé en pont complet',tstop:100e-3,probes:[['R1','va'],['L1','vb'],['L1','i']]})},
+ inv3(){const b=new Builder();
+  b.add('Vdc',6,15,1,{V:400},'Vdc');b.add('gnd',6,26,0,{},'GND');
+  b.wire(6,13,6,4);b.wire(6,4,34,4);b.wire(6,17,6,26);b.wire(6,26,34,26);
+  const xs=[14,24,34],ms=[8,14,20],ph=[0,-120,-240],nm='ABC';
+  for(let k=0;k<3;k++){const x=xs[k],m=ms[k],sp={mode:'spwm',fsw:5000,m:0.8,fref:50,ph:ph[k]};
+    b.add('SW',x,m-2,1,Object.assign({inv:0},sp),'S'+(2*k+1));b.add('SW',x,m+2,1,Object.assign({inv:1},sp),'S'+(2*k+2));
+    if(m-4>4)b.wire(x,4,x,m-4);if(m+4<26)b.wire(x,m+4,x,26);
+    b.wire(x,m,48,m);b.add('R',50,m,0,{R:10},'R'+nm[k]);b.wire(52,m,54,m);b.add('L',56,m,0,{L:10e-3},'L'+nm[k]);b.wire(58,m,62,m)}
+  b.wire(62,8,62,20);
+  return b.out({title:'Onduleur triphasé MLI sinus',tstop:100e-3,probes:[['LA','i'],['LB','i'],['LC','i'],['RA','va']]})},
+
+ scr1(){const b=new Builder();
+  b.add('Vac',6,12,2,{amp:325,f:50,ph:0},'E1');
+  const sp={alpha:45,fref:50,width:60};
+  b.add('SCR',14,10,3,Object.assign({ph:0},sp),'T1');b.add('SCR',14,14,3,Object.assign({ph:180},sp),'T2');
+  b.add('SCR',26,10,3,Object.assign({ph:180},sp),'T3');b.add('SCR',26,14,3,Object.assign({ph:0},sp),'T4');
+  b.wire(8,12,14,12);b.wire(14,8,34,8);b.wire(14,16,34,16);b.wire(26,12,30,12);b.wire(30,12,30,20);b.wire(30,20,4,20);b.wire(4,20,4,12);
+  b.add('R',34,10,1,{R:10},'R1');b.add('L',34,14,1,{L:50e-3},'L1');b.add('gnd',34,16,0,{},'GND');
+  return b.out({title:'Pont de Graetz à thyristors',tstop:100e-3,probes:[['R1','va'],['L1','i'],['E1','i'],['T1','g']]})},
+ scr3(){const b=new Builder();
+  const xs=[24,34,44],ms=[8,14,20],sx=[6,12,18],ph=[0,-120,-240];
+  for(let k=0;k<3;k++){b.add('Vac',sx[k],26,1,{amp:325,f:50,ph:ph[k]},'E'+'ABC'[k]);
+    const x=xs[k],m=ms[k],g=-ph[k]+30,sp={alpha:30,fref:50,width:60};
+    b.add('SCR',x,m-2,3,Object.assign({ph:g},sp),'T'+(2*k+1));b.add('SCR',x,m+2,3,Object.assign({ph:g+180},sp),'T'+(2*k+2));
+    if(m-4>4)b.wire(x,4,x,m-4);if(m+4<26)b.wire(x,m+4,x,26)}
+  b.wire(6,28,18,28);b.add('gnd',24,26,0,{},'GND');
+  b.wire(6,24,6,8);b.wire(6,8,24,8);b.wire(12,24,12,14);b.wire(12,14,34,14);b.wire(18,24,18,20);b.wire(18,20,44,20);
+  b.wire(24,4,52,4);b.wire(24,26,52,26);
+  b.add('L',52,9,1,{L:100e-3},'L1');b.wire(52,4,52,7);b.wire(52,11,52,13);b.add('R',52,15,1,{R:10},'R1');b.wire(52,17,52,26);
+  return b.out({title:'Redresseur triphasé commandé',tstop:100e-3,probes:[['L1','va'],['L1','i'],['T1','i']]})},
+
+ buckpi(){const b=new Builder();
+  b.add('Vdc',6,12,1,{V:48},'Vin');b.add('SW',12,10,0,{mode:'ext'},'S1');b.add('D',14,12,3,{},'D1');b.add('L',18,10,0,{L:200e-6},'L1');
+  b.add('C',22,12,1,{C:100e-6},'C1');b.add('R',26,12,1,{R:5},'R1');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,10,10);b.wire(14,10,16,10);b.wire(20,10,30,10);b.wire(6,14,30,14);
+  b.add('SV',30,12,1,{K:1},'Cv1');b.add('CST',8,1,0,{value:24},'Vref');b.add('SUM',14,2,0,{s1:1,s2:-1},'Err');
+  b.add('PI',20,2,0,{Kp:0.002,Ki:30,min:0,max:1},'PI1');b.add('TRI',22,-1,0,{f:20000,min:0,max:1},'Tri1');b.add('CMP',28,2,0,{},'Cmp1');
+  b.wire(10,1,12,1);b.wire(16,2,18,2);b.wire(22,2,24,2);b.wire(24,2,24,1);b.wire(24,1,26,1);
+  b.wire(24,-1,25,-1);b.wire(25,-1,25,3);b.wire(25,3,26,3);
+  b.wire(30,2,30,6);b.wire(30,6,12,6);b.wire(12,6,12,8);
+  b.wire(32,12,32,7);b.wire(32,7,10,7);b.wire(10,7,10,3);b.wire(10,3,12,3);
+  return b.out({title:'Hacheur série régulé en tension (PI)',tstop:20e-3,probes:[['R1','v'],['PI1','o'],['L1','i']]})},
+ spwmblk(){const b=new Builder();
+  b.add('Vdc',6,12,1,{V:400},'Vdc');b.add('gnd',6,16,0,{},'GND');
+  b.wire(6,10,6,8);b.wire(6,8,32,8);b.wire(6,14,6,16);b.wire(6,16,32,16);
+  b.add('SW',12,10,1,{mode:'ext',inv:0},'S1');b.add('SW',12,14,1,{mode:'ext',inv:1},'S2');
+  b.add('SW',32,10,1,{mode:'ext',inv:0},'S3');b.add('SW',32,14,1,{mode:'ext',inv:1},'S4');
+  b.wire(12,12,16,12);b.add('R',18,12,0,{R:10},'R1');b.wire(20,12,22,12);b.add('L',24,12,0,{L:20e-3},'L1');b.wire(26,12,32,12);
+  b.wire(14,10,14,18);b.wire(14,18,16,18);b.wire(16,18,16,22);
+  b.wire(34,10,34,18);b.wire(34,18,30,18);b.wire(30,18,30,22);
+  b.add('SIN',5,21,0,{amp:0.9,f:50,ph:0},'Ref1');b.add('SIN',20,21,0,{amp:0.9,f:50,ph:180},'Ref2');
+  b.add('TRI',5,25,0,{f:10000,min:-1,max:1},'Tri1');b.add('CMP',14,22,0,{},'Cmp1');b.add('CMP',28,22,0,{},'Cmp2');
+  b.wire(7,21,12,21);b.wire(22,21,26,21);
+  b.wire(7,25,24,25);b.wire(10,25,10,23);b.wire(10,23,12,23);b.wire(24,25,24,23);b.wire(24,23,26,23);
+  return b.out({title:'Onduleur monophasé, MLI par blocs',tstop:100e-3,probes:[['R1','va'],['L1','vb'],['L1','i']]})},
+
+ flyback(){const b=new Builder();
+  b.add('Vdc',6,13,1,{V:48},'Vin');b.add('gnd',6,17,0,{},'GND');
+  b.wire(6,11,12,11);b.wire(6,15,6,17);b.wire(6,17,12,17);
+  b.add('XF',14,12,0,{Lp:150e-6,n:2,k:0.995,inv:1},'TR1');
+  b.add('SW',12,15,1,{mode:'pwm',fsw:50000,duty:0.4},'S1');
+  b.add('D',20,11,0,{Vf:0.5},'D1');b.wire(16,11,18,11);
+  b.add('C',24,13,1,{C:220e-6},'C1');b.wire(22,11,28,11);
+  b.add('R',28,13,1,{R:8},'R1');
+  b.wire(16,13,16,15);b.wire(16,15,28,15);b.add('gnd',28,15,0,{},'GND2');
+  return b.out({title:'Alimentation à découpage flyback',tstop:4e-3,probes:[['R1','v'],['TR1','i'],['TR1','i2']]})},
+ rect3(){const b=new Builder();
+  const xs=[24,34,44],ms=[8,14,20],sx=[6,12,18],ph=[0,-120,-240];
+  for(let k=0;k<3;k++){b.add('Vac',sx[k],26,1,{amp:325,f:50,ph:ph[k]},'E'+'ABC'[k]);
+    const x=xs[k],m=ms[k];b.add('D',x,m-2,3,{},'D'+(2*k+1));b.add('D',x,m+2,3,{},'D'+(2*k+2));
+    if(m-4>4)b.wire(x,4,x,m-4);if(m+4<26)b.wire(x,m+4,x,26)}
+  b.wire(6,28,18,28);b.add('gnd',6,28,0,{},'GND');
+  b.wire(6,24,6,8);b.wire(6,8,24,8);b.wire(12,24,12,14);b.wire(12,14,34,14);b.wire(18,24,18,20);b.wire(18,20,44,20);
+  b.wire(24,4,58,4);b.wire(24,26,58,26);
+  b.add('C',52,15,1,{C:470e-6},'C1');b.wire(52,4,52,13);b.wire(52,17,52,26);
+  b.add('R',58,15,1,{R:20},'R1');b.wire(58,4,58,13);b.wire(58,17,58,26);
+  return b.out({title:'Redresseur triphasé à diodes',tstop:100e-3,probes:[['R1','v'],['R1','i'],['EA','i']]})}
+};
+if(typeof module!=='undefined')module.exports={fft,fftAny,spectrum,peaks,DEFAULTS,PRESETS,compile,autoDt,Runner,stats,thd,pinsOf,buildUF,nextName,PREFIX};
+
+/* ===================== Application ===================== */
+const G=20,$=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function fmtSI(x,d){if(x===0||!isFinite(x))return x===0?'0':String(x);d=d||3;const a=Math.abs(x),P=[[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']];
+  for(const [s,p] of P)if(a>=s*0.9995)return +(x/s).toPrecision(d)+p;return x.toExponential(1)}
+function parseSI(s){s=String(s).trim().replace(',','.').replace('µ','u');const m=s.match(/^([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*(meg|[GMkmunpf]?)/i);if(!m)return NaN;
+  const mult={G:1e9,M:1e6,meg:1e6,MEG:1e6,k:1e3,K:1e3,m:1e-3,u:1e-6,n:1e-9,p:1e-12,f:1e-15,'':1};let u=m[2];
+  if(u.toLowerCase()==='meg')u='meg';return parseFloat(m[1])*(mult[u]!==undefined?mult[u]:1)}
+const TYPES=[['R','Résistance'],['L','Inductance'],['C','Condensateur'],['XF','Transformateur'],['Vdc','Source DC'],['Vac','Source AC'],['Idc','Source I DC'],['Iac','Source I AC'],['D','Diode'],['SCR','Thyristor'],['SW','Interrupteur'],['gnd','Masse']];
+const CTRL=[['SIN','Sinus'],['CST','Constante'],['TRI','Triangle'],['CMP','Comparateur'],['SUM','Sommateur'],['GAIN','Gain'],['PI','Régulateur PI'],['SV','Capteur tension'],['SI','Capteur courant']];
+const GLYPH={SUM:'Σ',GAIN:'K',PI:'PI',SV:'V',SI:'A'};
+const SCHEMA={
+ XF:[{k:'Lp',l:'Inductance primaire',u:'H'},{k:'n',l:'Rapport Np/Ns'},{k:'k',l:'Couplage k (0 à 0,9999)'},{k:'inv',l:'Secondaire inversé (points opposés)',t:'chk'}],
+ R:[{k:'R',l:'Résistance',u:'Ω'}],
+ L:[{k:'L',l:'Inductance',u:'H'},{k:'i0',l:'Courant initial',u:'A'}],
+ C:[{k:'C',l:'Capacité',u:'F'},{k:'v0',l:'Tension initiale',u:'V'}],
+ Vdc:[{k:'V',l:'Tension',u:'V'}],
+ Idc:[{k:'I',l:'Courant',u:'A'}],
+ Iac:[{k:'amp',l:'Amplitude crête',u:'A'},{k:'f',l:'Fréquence',u:'Hz'},{k:'ph',l:'Phase',u:'°'},{k:'off',l:'Offset',u:'A'}],
+ SIN:[{k:'amp',l:'Amplitude'},{k:'f',l:'Fréquence',u:'Hz'},{k:'ph',l:'Phase',u:'°'},{k:'off',l:'Offset'}],
+ CST:[{k:'value',l:'Valeur'}],
+ TRI:[{k:'f',l:'Fréquence',u:'Hz'},{k:'min',l:'Valeur basse'},{k:'max',l:'Valeur haute'}],
+ CMP:[{k:'high',l:'Sortie haute'},{k:'low',l:'Sortie basse'},{k:'hyst',l:'Hystérésis'}],
+ SUM:[{k:'s1',l:'Signe entrée 1 (±1)'},{k:'s2',l:'Signe entrée 2 (±1)'}],
+ GAIN:[{k:'K',l:'Gain'}],
+ PI:[{k:'Kp',l:'Gain proportionnel Kp'},{k:'Ki',l:'Gain intégral Ki (1/s)'},{k:'min',l:'Sortie minimale'},{k:'max',l:'Sortie maximale'},{k:'i0',l:'Sortie initiale'}],
+ SV:[{k:'K',l:'Gain'}],
+ SI:[{k:'K',l:'Gain'},{k:'Rs',l:'Résistance série',u:'Ω'}],
+ Vac:[{k:'amp',l:'Amplitude crête',u:'V'},{k:'f',l:'Fréquence',u:'Hz'},{k:'ph',l:'Phase',u:'°'},{k:'off',l:'Offset',u:'V'}],
+ D:[{k:'Vf',l:'Seuil Vf',u:'V'},{k:'Ron',l:'Résistance passante',u:'Ω'}],
+ SCR:[{k:'mode',l:'Amorçage',t:'sel',o:[['angle','Angle α'],['ext','Signal externe']]},{k:'alpha',l:'Angle d’amorçage α',u:'°',m:'angle'},{k:'ph',l:'Phase de référence',u:'°',m:'angle'},{k:'fref',l:'Fréq. de référence',u:'Hz',m:'angle'},{k:'width',l:'Largeur d’impulsion',u:'°',m:'angle'},{k:'Vf',l:'Chute directe Vf',u:'V'},{k:'Ron',l:'Résistance passante',u:'Ω'}],
+ SW:[{k:'mode',l:'Commande',t:'sel',o:[['pwm','Rapport fixe'],['spwm','MLI sinus'],['ext','Signal externe (port G)']]},{k:'fsw',l:'Fréq. de découpage',u:'Hz',m:['pwm','spwm']},
+  {k:'duty',l:'Rapport cyclique',m:'pwm'},{k:'m',l:'Indice de modulation',m:'spwm'},{k:'fref',l:'Fréq. de référence',u:'Hz',m:'spwm'},{k:'ph',l:'Phase référence',u:'°',m:'spwm'},
+  {k:'inv',l:'Commande complémentaire',t:'chk'},{k:'body',l:'Diode antiparallèle',t:'chk'},{k:'Ron',l:'Résistance passante',u:'Ω'},{k:'Vf',l:'Seuil de la diode',u:'V'}]};
+const KIND={v2:['tension secondaire','V'],i2:['courant secondaire','A'],o:['signal',''],v:['tension a−b','V'],va:['potentiel a','V'],vb:['potentiel b','V'],i:['courant','A'],g:['commande','']};
+let circuit={comps:[],wires:[]},probes=[],sel=null,tool='select',ghostRot=0,view={ox:30,oy:30,s:1},idc=1,pidc=1;
+let wireStart=null,wireFlip=false,mouse={x:0,y:0,in:false},drag=null,res=null,sv={t0:0,t1:1},runTok=0,undoStack=[],meas=null,thdCache=null;
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const setStatus=(t,c)=>{const s=$('status');s.textContent=t;s.className='status '+(c||'')};
+
+/* ---------- Symboles ---------- */
+function drawSymbol(ctx,type,p,col,body){
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineCap='round';ctx.lineJoin='round';
+  const L=(a,b,c,d)=>{ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke()};
+  const O=(x,y,r)=>{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke()};
+  switch(type){
+   case'R':L(-2,0,-1.1,0);ctx.strokeRect(-1.1,-.4,2.2,.8);L(1.1,0,2,0);break;
+   case'L':L(-2,0,-1.2,0);for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(-.9+.6*i,0,.3,Math.PI,0);ctx.stroke()}L(1.2,0,2,0);break;
+   case'C':L(-2,0,-.25,0);L(-.25,-.7,-.25,.7);L(.25,-.7,.25,.7);L(.25,0,2,0);break;
+   case'Vdc':L(-2,0,-.9,0);O(0,0,.9);L(.9,0,2,0);L(-.62,0,-.3,0);L(-.46,-.16,-.46,.16);L(.3,0,.62,0);break;
+   case'Vac':{L(-2,0,-.9,0);O(0,0,.9);L(.9,0,2,0);ctx.beginPath();for(let i=0;i<=20;i++){const x=-.5+i*.05,y=-.28*Math.sin(2*Math.PI*(x+.5));i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke();L(-1.55,-.5,-1.25,-.5);L(-1.4,-.65,-1.4,-.35);break}
+   case'D':L(-2,0,-.5,0);ctx.beginPath();ctx.moveTo(-.5,-.6);ctx.lineTo(-.5,.6);ctx.lineTo(.5,0);ctx.closePath();ctx.stroke();L(.5,-.6,.5,.6);L(.5,0,2,0);break;
+   case'SCR':L(-2,0,-.5,0);ctx.beginPath();ctx.moveTo(-.5,-.6);ctx.lineTo(-.5,.6);ctx.lineTo(.5,0);ctx.closePath();ctx.stroke();L(.5,-.6,.5,.6);L(.5,0,2,0);L(.1,.3,.55,1);L(.55,1,1,1);break;
+   case'SW':L(-2,0,-.8,0);L(.8,0,2,0);O(-.8,0,.08);O(.8,0,.08);L(-.75,-.05,.65,-.75);L(0,-.4,0,p&&p.mode==='ext'?-2:-1.0);
+     if(body){L(-.8,.08,-.8,.6);L(-.8,.6,-.3,.6);L(.3,.6,.8,.6);L(.8,.6,.8,.08);ctx.beginPath();ctx.moveTo(.3,.3);ctx.lineTo(.3,.9);ctx.lineTo(-.3,.6);ctx.closePath();ctx.stroke();L(-.3,.3,-.3,.9)}break;
+   case'Idc':L(-2,0,-.9,0);O(0,0,.9);L(.9,0,2,0);L(-.5,0,.5,0);L(.5,0,.15,.28);L(.5,0,.15,-.28);break;
+   case'Iac':{L(-2,0,-.9,0);O(0,0,.9);L(.9,0,2,0);ctx.beginPath();for(let i=0;i<=20;i++){const x=-.5+i*.05,y=-.28*Math.sin(2*Math.PI*(x+.5));i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke();L(-.35,-1.25,.35,-1.25);L(.35,-1.25,.1,-1.08);L(.35,-1.25,.1,-1.42);break}
+   case'SIN':case'CST':case'TRI':case'SUM':case'PI':{ctx.strokeRect(-1.5,-1.2,3,2.4);L(1.5,0,2,0);
+     if(type==='SUM'){L(-2,-1,-1.5,-1);L(-2,1,-1.5,1)}else if(type==='PI')L(-2,0,-1.5,0);
+     if(type==='SIN'){ctx.beginPath();for(let i=0;i<=30;i++){const x=-1+i/15,y=-.6*Math.sin(Math.PI*(x+1));i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}
+     if(type==='TRI'){ctx.beginPath();ctx.moveTo(-1,.5);ctx.lineTo(-.5,-.5);ctx.lineTo(0,.5);ctx.lineTo(.5,-.5);ctx.lineTo(1,.5);ctx.stroke()}
+     if(type==='CST')L(-.8,0,.8,0);break}
+   case'CMP':ctx.beginPath();ctx.moveTo(-1.4,-1.5);ctx.lineTo(-1.4,1.5);ctx.lineTo(1.4,0);ctx.closePath();ctx.stroke();L(-2,-1,-1.4,-1);L(-2,1,-1.4,1);L(1.4,0,2,0);L(-1.15,-.7,-.85,-.7);L(-1,-.85,-1,-.55);L(-1.15,.7,-.85,.7);break;
+   case'GAIN':ctx.beginPath();ctx.moveTo(-1.2,-1);ctx.lineTo(-1.2,1);ctx.lineTo(1.2,0);ctx.closePath();ctx.stroke();L(-2,0,-1.2,0);L(1.2,0,2,0);break;
+   case'SV':case'SI':L(-2,0,-.9,0);O(0,0,.9);L(.9,0,2,0);L(0,-.9,0,-2);break;
+   case'XF':{L(-2,-1,-1.2,-1);L(-1.2,1,-2,1);for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(-1.2,-.75+.5*i,.25,Math.PI/2,Math.PI*1.5);ctx.stroke()}
+     L(2,-1,1.2,-1);L(1.2,1,2,1);for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(1.2,-.75+.5*i,.25,-Math.PI/2,Math.PI/2);ctx.stroke()}
+     L(-.12,-1.15,-.12,1.15);L(.12,-1.15,.12,1.15);
+     ctx.beginPath();ctx.arc(-.7,-1.2,.1,0,7);ctx.fill();ctx.beginPath();ctx.arc(.7,p&&p.inv?1.2:-1.2,.1,0,7);ctx.fill();break}
+   case'gnd':L(0,0,0,.5);L(-.6,.5,.6,.5);L(-.4,.75,.4,.75);L(-.2,1,.2,1);break}}
+function compLabel(c){const p=c.p;
+  switch(c.type){case'R':return fmtSI(p.R)+'Ω';case'L':return fmtSI(p.L)+'H';case'C':return fmtSI(p.C)+'F';case'Vdc':return fmtSI(p.V)+' V';
+   case'Vac':return fmtSI(p.amp)+' V · '+fmtSI(p.f)+'Hz'+(p.ph?' · '+p.ph+'°':'');
+   case'SW':if(p.mode==='ext')return 'G ext.'+(p.inv?' inv.':'');return (p.mode==='spwm'?'m='+p.m+' '+(p.inv?'inv.':''):'α='+p.duty)+' @'+fmtSI(p.fsw)+'Hz';
+   case'XF':return fmtSI(p.Lp)+'H · '+fmtSI(p.n)+':1 · k='+p.k;
+   case'Idc':return fmtSI(p.I)+' A';case'Iac':return fmtSI(p.amp)+' A · '+fmtSI(p.f)+'Hz'+(p.ph?' · '+p.ph+'°':'');
+   case'SIN':return fmtSI(p.amp)+' · '+fmtSI(p.f)+'Hz'+(p.ph?' · '+p.ph+'°':'');case'CST':return fmtSI(p.value);
+   case'TRI':return fmtSI(p.min)+' … '+fmtSI(p.max)+' · '+fmtSI(p.f)+'Hz';case'CMP':return 'in+ > in−'+(p.hyst?' · h='+fmtSI(p.hyst):'');
+   case'SUM':return (p.s1<0?'−':'')+'e1'+(p.s2<0?' − ':' + ')+'e2';case'GAIN':return 'K='+fmtSI(p.K);case'PI':return 'Kp='+fmtSI(p.Kp)+' Ki='+fmtSI(p.Ki);
+   case'SV':return 'K='+fmtSI(p.K);case'SI':return 'K='+fmtSI(p.K);
+   case'D':return p.Vf+' V';case'SCR':return p.mode==='ext'?'G ext.':'α='+p.alpha+'° · réf '+p.ph+'°';default:return ''}}
+function makeIcon(type){const cv=document.createElement('canvas');cv.width=112;cv.height=52;const x=cv.getContext('2d');x.scale(2,2);x.translate(28,type==='gnd'?4:(type==='SV'||type==='SI')?18:13);x.scale(9.5,9.5);x.lineWidth=.14;
+  drawSymbol(x,type,Object.assign({},DEFAULTS[type]),css('--ink'),true);if(GLYPH[type]){x.font='600 1.35px '+css('--ui');x.textAlign='center';x.textBaseline='middle';x.fillText(GLYPH[type],0,0)}return cv}
+
+/* ---------- Palette ---------- */
+function buildPalette(){const pal=$('pal');pal.innerHTML='';
+  const mk=(id,label,icon)=>{const b=document.createElement('button');b.className='tool';b.dataset.tool=id;b.title=label;if(icon)b.appendChild(icon);else{const s=document.createElement('div');s.style.cssText='height:26px;font-size:18px;line-height:26px';s.textContent=id==='select'?'↖':'┼';b.appendChild(s)}
+    const t=document.createElement('span');t.textContent=label;b.appendChild(t);b.onclick=()=>setTool(id);pal.appendChild(b);return b};
+  mk('select','Sélection (V)');mk('wire','Fil (W)');const s=document.createElement('div');s.className='sep';pal.appendChild(s);
+  for(const [t,l] of TYPES)mk(t,l,makeIcon(t));
+  const s2=document.createElement('div');s2.className='sep';pal.appendChild(s2);const lb=document.createElement('div');lb.className='lbl';lb.textContent='Commande';lb.style.cssText='text-align:center;padding:2px 0';pal.appendChild(lb);
+  for(const [t,l] of CTRL)mk(t,l,makeIcon(t))}
+function setTool(t){tool=t;wireStart=null;document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
+  $('hint').textContent=t==='select'?'Clic : sélectionner · glisser : déplacer · R : pivoter · Suppr : effacer · molette : zoom':t==='wire'?'Clic pour tracer, Échap ou double‑clic pour terminer · R : changer le coude':'Clic : poser · R : pivoter · Échap : revenir à la sélection';draw()}
+
+/* ---------- Historique ---------- */
+function snap(){undoStack.push(JSON.stringify({circuit,probes}));if(undoStack.length>60)undoStack.shift()}
+function undo(){const s=undoStack.pop();if(!s)return;const o=JSON.parse(s);circuit=o.circuit;probes=o.probes;sel=null;changed(false)}
+function changed(save=true){if(save)persist();renderInsp();renderProbes();draw()}
+function persist(){store.set('commutation-v1',JSON.stringify({circuit,probes,idc,pidc,tstop:$('tstop').value,dt:$('dtin').value}))}
+
+/* ---------- Géométrie / dessin du schéma ---------- */
+const cv=$('sch'),cx=cv.getContext('2d');
+function sizeCanvas(c){const r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;const w=Math.max(10,Math.round(r.width*d)),h=Math.max(10,Math.round(r.height*d));if(c.width!==w||c.height!==h){c.width=w;c.height=h}return{w:r.width,h:r.height,d}}
+const toS=(x,y)=>[view.ox+x*G*view.s,view.oy+y*G*view.s];
+const toW=(px,py)=>[(px-view.ox)/(G*view.s),(py-view.oy)/(G*view.s)];
+function compLocal(c,wx,wy){let dx=wx-c.x,dy=wy-c.y;const r=((c.rot%4)+4)%4;for(let i=0;i<r;i++){const t=dx;dx=dy;dy=-t}return[dx,dy]}
+function hitComp(wx,wy){for(let i=circuit.comps.length-1;i>=0;i--){const c=circuit.comps[i],[lx,ly]=compLocal(c,wx,wy);
+  if(c.type==='gnd'){if(Math.abs(lx)<.8&&ly>-.3&&ly<1.2)return c}else if(Math.abs(lx)<=2.1&&Math.abs(ly)<=1.3)return c}return null}
+function segDist(w,x,y){const ax=w.x1,ay=w.y1,bx=w.x2,by=w.y2,dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy;let t=l?((x-ax)*dx+(y-ay)*dy)/l:0;t=Math.max(0,Math.min(1,t));return Math.hypot(x-(ax+t*dx),y-(ay+t*dy))}
+function hitWire(wx,wy){for(let i=circuit.wires.length-1;i>=0;i--)if(segDist(circuit.wires[i],wx,wy)<.3)return i;return -1}
+function wirePreview(a,b,flip){if(a.x===b.x||a.y===b.y)return[[a.x,a.y,b.x,b.y]];return flip?[[a.x,a.y,a.x,b.y],[a.x,b.y,b.x,b.y]]:[[a.x,a.y,b.x,a.y],[b.x,a.y,b.x,b.y]]}
+function draw(){
+  const {w,h,d}=sizeCanvas(cv);cx.setTransform(d,0,0,d,0,0);cx.fillStyle=css('--canvas');cx.fillRect(0,0,w,h);
+  const ink=css('--ink'),acc=css('--accent'),sc=css('--sel'),u=G*view.s;
+  /* grille de points */
+  cx.fillStyle=css('--dots');const x0=Math.floor(-view.ox/u)-1,x1=Math.ceil((w-view.ox)/u)+1,y0=Math.floor(-view.oy/u)-1,y1=Math.ceil((h-view.oy)/u)+1;
+  if(u>7)for(let gx=x0;gx<=x1;gx++)for(let gy=y0;gy<=y1;gy++){const[px,py]=toS(gx,gy);cx.fillRect(px-.75,py-.75,1.5,1.5)}
+  /* connexions */
+  const cnt=new Map(),bump=(x,y)=>{const k=K(x,y);cnt.set(k,(cnt.get(k)||0)+1)};
+  const pts=[];for(const wr of circuit.wires){bump(wr.x1,wr.y1);bump(wr.x2,wr.y2);pts.push([wr.x1,wr.y1],[wr.x2,wr.y2])}
+  for(const c of circuit.comps)for(const p of pinsOf(c)){bump(p[0],p[1]);pts.push(p)}
+  for(const [x,y] of pts)for(const wr of circuit.wires)if(onInterior(wr,x,y)){bump(x,y);bump(x,y)}
+  /* fils */
+  cx.lineCap='round';cx.lineJoin='round';
+  circuit.wires.forEach((wr,i)=>{const s=sel&&sel.kind==='w'&&sel.i===i;cx.strokeStyle=s?sc:ink;cx.lineWidth=s?3:2;const a=toS(wr.x1,wr.y1),b=toS(wr.x2,wr.y2);cx.beginPath();cx.moveTo(...a);cx.lineTo(...b);cx.stroke()});
+  /* composants */
+  const sprobed=new Set(probes.map(p=>p.comp));
+  for(const c of circuit.comps){const s=sel&&sel.kind==='c'&&sel.id===c.id;drawComp(c,s?sc:ink,s,sprobed.has(c.id))}
+  /* points de connexion */
+  for(const [k,n] of cnt){const[x,y]=k.split(',').map(Number),[px,py]=toS(x,y);
+    if(n>=3){cx.fillStyle=ink;cx.beginPath();cx.arc(px,py,3.2*Math.max(.8,view.s),0,7);cx.fill()}}
+  for(const c of circuit.comps)for(const p of pinsOf(c)){const[px,py]=toS(p[0],p[1]),n=cnt.get(K(p[0],p[1]))||0;cx.beginPath();cx.arc(px,py,2.8,0,7);
+    if(n>=2){cx.fillStyle=ink;cx.fill()}else{cx.fillStyle=css('--canvas');cx.fill();cx.strokeStyle=css('--bad');cx.lineWidth=1.4;cx.stroke()}}
+  /* fantôme / aperçu */
+  if(mouse.in){const gx=Math.round(toW(mouse.x,mouse.y)[0]),gy=Math.round(toW(mouse.x,mouse.y)[1]);
+    if(tool!=='select'&&tool!=='wire'){cx.globalAlpha=.55;drawComp({type:tool,x:gx,y:gy,rot:ghostRot,p:Object.assign({},DEFAULTS[tool]),name:''},acc,false,false);cx.globalAlpha=1}
+    else if(tool==='wire'){const[px,py]=toS(gx,gy);cx.fillStyle=acc;cx.beginPath();cx.arc(px,py,4,0,7);cx.fill();
+      if(wireStart){cx.strokeStyle=acc;cx.lineWidth=2;cx.setLineDash([5,4]);for(const s of wirePreview(wireStart,{x:gx,y:gy},wireFlip)){cx.beginPath();cx.moveTo(...toS(s[0],s[1]));cx.lineTo(...toS(s[2],s[3]));cx.stroke()}cx.setLineDash([])}}}
+}
+function drawComp(c,col,selected,probed){
+  const[px,py]=toS(c.x,c.y),u=G*view.s;cx.save();cx.translate(px,py);cx.rotate(c.rot*Math.PI/2);cx.scale(u,u);cx.lineWidth=(selected?2.8:2)/u;
+  drawSymbol(cx,c.type,c.p,col,c.type==='SW'&&c.p.body);cx.restore();
+  if(GLYPH[c.type]){cx.fillStyle=col;cx.font='600 '+Math.max(10,15*view.s)+'px '+css('--ui');cx.textAlign='center';cx.textBaseline='middle';cx.fillText(GLYPH[c.type],px,py)}
+  if(c.type==='gnd'||!c.name)return;
+  const bl=BLOCK_TYPES.has(c.type)||c.type==='XF',top=(c.type==='SV'||c.type==='SI'||(c.type==='SW'&&c.p.mode==='ext'))?2.35:bl?1.5:1.05,rgt=bl?1.7:1.2,v=((c.rot%2)===1);cx.fillStyle=col;cx.font='500 '+Math.max(10,12*view.s)+'px '+css('--ui');
+  if(!v){cx.textAlign='center';cx.textBaseline='alphabetic';cx.fillText(c.name,px,py-top*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');cx.fillText(compLabel(c),px,py+(c.type==='SW'&&c.p.body?1.55:bl?1.45:1.2)*u+8*view.s)}
+  else{cx.textAlign='left';cx.textBaseline='alphabetic';cx.fillText(c.name,px+rgt*u,py-.1*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');cx.fillText(compLabel(c),px+rgt*u,py+.6*u)}
+  if(probed){cx.fillStyle=css('--accent');cx.beginPath();cx.arc(px+(v?-.0:0),py+(v?0:0)-(v?0:0),0,0,1);cx.fill()}
+}
+
+/* ---------- Interaction schéma ---------- */
+function evPos(e){const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
+cv.addEventListener('pointerdown',e=>{cv.focus();cv.setPointerCapture(e.pointerId);const[px,py]=evPos(e),[wx,wy]=toW(px,py),gx=Math.round(wx),gy=Math.round(wy);
+  if(e.button===2){if(wireStart){wireStart=null;draw()}return}
+  if(tool==='select'){const c=hitComp(wx,wy);
+    if(c){sel={kind:'c',id:c.id};snap();drag={type:'move',c,ox:c.x,oy:c.y,sx:gx,sy:gy,moved:false}}
+    else{const i=hitWire(wx,wy);if(i>=0)sel={kind:'w',i};else{sel=null;drag={type:'pan',px,py,ox:view.ox,oy:view.oy}}}
+    renderInsp();draw()}
+  else if(tool==='wire'){
+    if(!wireStart)wireStart={x:gx,y:gy};
+    else{if(wireStart.x===gx&&wireStart.y===gy){wireStart=null}else{snap();for(const s of wirePreview(wireStart,{x:gx,y:gy},wireFlip))circuit.wires.push({x1:s[0],y1:s[1],x2:s[2],y2:s[3]});wireStart={x:gx,y:gy};persist()}}
+    draw()}
+  else{snap();const c={id:idc++,type:tool,x:gx,y:gy,rot:ghostRot,p:Object.assign({},DEFAULTS[tool]),name:nextName(circuit.comps,tool)};circuit.comps.push(c);sel={kind:'c',id:c.id};persist();renderInsp();draw()}});
+cv.addEventListener('pointermove',e=>{const[px,py]=evPos(e);mouse={x:px,y:py,in:true};
+  if(drag){if(drag.type==='pan'){view.ox=drag.ox+px-drag.px;view.oy=drag.oy+py-drag.py}
+    else{const[wx,wy]=toW(px,py),gx=Math.round(wx),gy=Math.round(wy);const nx=drag.ox+gx-drag.sx,ny=drag.oy+gy-drag.sy;if(nx!==drag.c.x||ny!==drag.c.y){drag.c.x=nx;drag.c.y=ny;drag.moved=true}}}
+  draw()});
+cv.addEventListener('pointerup',()=>{if(drag&&drag.type==='move'){if(!drag.moved)undoStack.pop();else persist()}drag=null});
+cv.addEventListener('pointerleave',()=>{mouse.in=false;draw()});
+cv.addEventListener('dblclick',()=>{if(tool==='wire'){wireStart=null;draw()}});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('wheel',e=>{e.preventDefault();const[px,py]=evPos(e),[wx,wy]=toW(px,py),f=Math.exp(-e.deltaY*.0015),s=Math.max(.35,Math.min(2.6,view.s*f));view.s=s;view.ox=px-wx*G*s;view.oy=py-wy*G*s;draw()},{passive:false});
+function rotateSel(){if(sel&&sel.kind==='c'){snap();const c=circuit.comps.find(c=>c.id===sel.id);c.rot=(c.rot+1)%4;persist();draw()}else if(tool==='wire'){wireFlip=!wireFlip;draw()}else{ghostRot=(ghostRot+1)%4;draw()}}
+function deleteSel(){if(!sel)return;snap();if(sel.kind==='c'){circuit.comps=circuit.comps.filter(c=>c.id!==sel.id);probes=probes.filter(p=>p.comp!==sel.id)}else circuit.wires.splice(sel.i,1);sel=null;changed()}
+cv.addEventListener('keydown',e=>{
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteSel()}
+  else if(e.key==='r'||e.key==='R'||e.key===' '){e.preventDefault();rotateSel()}
+  else if(e.key==='Escape'){if(wireStart){wireStart=null;draw()}else setTool('select')}
+  else if(e.key==='w'||e.key==='W')setTool('wire');else if(e.key==='v'||e.key==='V')setTool('select');
+  else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo()}});
+
+/* ---------- Inspecteur et sondes ---------- */
+function el(tag,attrs,...kids){const n=document.createElement(tag);for(const k in(attrs||{})){if(k==='class')n.className=attrs[k];else if(k.startsWith('on'))n[k]=attrs[k];else n.setAttribute(k,attrs[k])}for(const c of kids)n.append(c);return n}
+function renderInsp(){const box=$('insp');box.innerHTML='';
+  if(!sel){box.append(el('div',{class:'empty'},'Sélectionnez un composant pour modifier ses paramètres et ajouter des sondes.'));return}
+  if(sel.kind==='w'){box.append(el('div',{class:'empty'},'Fil sélectionné. Suppr pour l’effacer.'));return}
+  const c=circuit.comps.find(c=>c.id===sel.id);if(!c)return;
+  const nm=el('input',{type:'text',id:'f-name',value:c.name});nm.style.cssText='width:110px;text-align:right';nm.onchange=()=>{snap();c.name=nm.value.trim()||c.name;changed()};
+  box.append(el('div',{class:'field'},el('label',{for:'f-name'},'Nom'),nm));
+  for(const f of(SCHEMA[c.type]||[])){if(f.m&&!([].concat(f.m)).includes(c.p.mode))continue;const id='f-'+f.k;let inp;
+    if(f.t==='sel'){inp=el('select',{id});for(const[v,l] of f.o){const o=el('option',{value:v},l);if(c.p[f.k]===v)o.selected=true;inp.append(o)}inp.onchange=()=>{snap();c.p[f.k]=inp.value;changed()}}
+    else if(f.t==='chk'){inp=el('input',{type:'checkbox',id});inp.checked=!!c.p[f.k];inp.onchange=()=>{snap();c.p[f.k]=inp.checked?1:0;changed()}}
+    else{inp=el('input',{type:'text',id,value:fmtSI(c.p[f.k]),inputmode:'decimal'});inp.onchange=()=>{const v=parseSI(inp.value);if(isNaN(v)){inp.value=fmtSI(c.p[f.k]);return}snap();c.p[f.k]=v;changed()}}
+    box.append(el('div',{class:'field'},el('label',{for:id},f.l+(f.u?' ('+f.u+')':'')),inp))}
+  const row=el('div',{class:'row'});const kinds=kindsFor(c);
+  for(const k of kinds){const lab=(k==='i'&&(c.type==='Vdc'||c.type==='Vac'))?'courant fourni':KIND[k][0];row.append(el('button',{class:'btn sm',onclick:()=>addProbe(c.id,k)},'+ '+lab))}
+  if(kinds.length){box.append(el('div',{class:'lbl',style:'margin:8px 0 5px'},'Ajouter une sonde'),row)}
+  const r2=el('div',{class:'row',style:'margin-top:10px'});r2.append(el('button',{class:'btn sm',onclick:rotateSel},'Pivoter'),el('button',{class:'btn sm',onclick:deleteSel},'Supprimer'));box.append(r2)}
+function kindsFor(c){const t=c.type;if(t==='gnd')return[];if(t==='XF')return['v','i','v2','i2'];if(BLOCK_TYPES.has(t))return['o'];if(t==='SV')return['v','va','vb','o'];if(t==='SI')return['i','v','o'];if(t==='SW'||t==='SCR')return['v','i','va','vb','g'];return['v','i','va','vb']}
+function probeName(p){const c=circuit.comps.find(c=>c.id===p.comp);if(!c)return'?';if(c.type==='XF'&&(p.kind==='v'||p.kind==='i'))return c.name+' · '+(p.kind==='v'?'tension primaire':'courant primaire');const lab=(p.kind==='i'&&(c.type==='Vdc'||c.type==='Vac'))?'courant fourni':KIND[p.kind][0];return c.name+' · '+lab}
+function addProbe(comp,kind){if(probes.some(p=>p.comp===comp&&p.kind===kind))return;snap();probes.push({id:pidc++,comp,kind,show:true});persist();renderProbes();simulate()}
+function renderProbes(){const box=$('probes');box.innerHTML='';
+  if(!probes.length){box.append(el('div',{class:'empty'},'Aucune sonde. Sélectionnez un composant puis ajoutez une tension ou un courant.'));return}
+  probes.forEach((p,i)=>{const cb=el('input',{type:'checkbox','aria-label':'Afficher '+probeName(p)});cb.checked=p.show;cb.onchange=()=>{p.show=cb.checked;persist();drawScope();renderMeas()};
+    const sw=el('span',{class:'sw',style:'background:var(--t'+(i%8+1)+')'});
+    box.append(el('div',{class:'pr'},cb,sw,el('span',{class:'n'},probeName(p)),el('button',{title:'Retirer la sonde','aria-label':'Retirer la sonde',onclick:()=>{snap();probes.splice(i,1);persist();renderProbes();simulate()}},'✕')))})}
+
+/* ---------- Simulation ---------- */
+function simulate(){
+  const tok=++runTok;const net=compile(circuit);if(net.error){setStatus(net.error,'err');return}
+  const ts=parseSI($('tstop').value);if(!(ts>0)){setStatus('Durée invalide.','err');return}
+  const used=probes.filter(p=>circuit.comps.some(c=>c.id===p.comp));
+  let dt=$('dtin').value.trim().toLowerCase()==='auto'?autoDt(net):parseSI($('dtin').value);if(!(dt>0)){setStatus('Pas de calcul invalide.','err');return}
+  const MAX=600000;let note='';if(ts/dt>MAX){dt=ts/MAX;note=' · pas élargi à '+fmtSI(dt)+'s'}
+  const N=Math.max(2,Math.round(ts/dt));const r=new Runner(net,dt,N,used);const t0=performance.now();setStatus('Calcul… 0 %');
+  const meta=used.map(p=>{const i=probes.indexOf(p);return{label:probeName(p),unit:KIND[p.kind][1],color:i%8,show:p.show,pid:p.id}});
+  (function loop(){if(tok!==runTok)return;const done=r.run(40);
+    if(r.err){setStatus(r.err,'err');return}
+    if(!done){setStatus('Calcul… '+Math.round(100*r.k/N)+' %');setTimeout(loop,0);return}
+    res={dt,N,data:r.data,meta};sv={t0:0,t1:N*dt};thdCache=null;specCache=null;
+    setStatus(N.toLocaleString('fr-FR')+' pas · '+Math.round(performance.now()-t0)+' ms'+note,'ok');drawScope();renderMeas()})()}
+
+/* ---------- Oscilloscope ---------- */
+const sc=$('scope'),sx=sc.getContext('2d');let scur=null,sdrag=null;
+function niceTicks(lo,hi,n){const span=hi-lo||1,raw=span/n,p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p,s=(f<1.5?1:f<3?2:f<7?5:10)*p,out=[];for(let v=Math.ceil(lo/s-1e-9)*s;v<=hi+s*1e-9;v+=s)out.push(Math.abs(v)<s*1e-9?0:v);return{ticks:out,step:s}}
+function visTraces(){return res?res.meta.map((m,i)=>({...m,i})).filter(m=>m.show&&probes.find(p=>p.id===m.pid)&&probes.find(p=>p.id===m.pid).show):[]}
+function drawScope(){
+  if(specMode){drawSpectrum();return}
+  const{w,h,d}=sizeCanvas(sc);sx.setTransform(d,0,0,d,0,0);sx.fillStyle=css('--canvas');sx.fillRect(0,0,w,h);
+  const fg=css('--fg'),mu=css('--muted'),ln=css('--line');sx.font='11px '+css('--mono');
+  if(!res){sx.fillStyle=mu;sx.textAlign='center';sx.fillText('Lancez la simulation pour afficher les courbes.',w/2,h/2);return}
+  const tr=visTraces();if(!tr.length){sx.fillStyle=mu;sx.textAlign='center';sx.fillText('Ajoutez une sonde pour afficher une courbe.',w/2,h/2);return}
+  const ML=62,MR=12,MT=8,MB=22,pw=w-ML-MR,sep=$('lanes').checked,nl=sep?tr.length:1,lh=(h-MT-MB)/nl;
+  const ia=Math.max(0,Math.floor(sv.t0/res.dt+1e-6)),ib=Math.min(res.N,Math.ceil(sv.t1/res.dt-1e-6));const T0=sv.t0,T1=sv.t1;
+  const X=t=>ML+(t-T0)/(T1-T0)*pw;
+  /* axe du temps */
+  const tt=niceTicks(T0,T1,Math.max(3,Math.floor(pw/90)));sx.textBaseline='top';
+  for(const t of tt.ticks){const x=X(t);sx.textAlign=x>w-30?'right':'center';sx.strokeStyle=ln;sx.lineWidth=1;sx.globalAlpha=.6;sx.beginPath();sx.moveTo(x,MT);sx.lineTo(x,h-MB);sx.stroke();sx.globalAlpha=1;sx.fillStyle=mu;sx.fillText(fmtSI(t,3)+'s',x,h-MB+5)}
+  /* échelle commune en mode superposé */
+  const range=(list)=>{let lo=Infinity,hi=-Infinity;for(const m of list){const a=res.data[m.i];const st=Math.max(1,Math.floor((ib-ia)/20000));for(let k=ia;k<ib;k+=st){const v=a[k];if(v<lo)lo=v;if(v>hi)hi=v}}if(!isFinite(lo)){lo=0;hi=1}if(hi-lo<1e-12){hi=lo+1;lo=lo-1}const pad=(hi-lo)*.1;return[lo-pad,hi+pad]};
+  const shared=sep?null:range(tr);
+  tr.forEach((m,li)=>{const lane=sep?li:0,y0=MT+lane*lh,y1=y0+lh-(sep&&li<nl-1?6:0);const[lo,hi]=sep?range([m]):shared;
+    const Y=v=>y1-(v-lo)/(hi-lo)*(y1-y0);
+    if(sep||li===0){const yt=niceTicks(lo,hi,Math.max(2,Math.floor((y1-y0)/38)));sx.textAlign='right';sx.textBaseline='middle';
+      for(const v of yt.ticks){const y=Y(v);if(y<y0-1||y>y1+1)continue;sx.strokeStyle=v===0?mu:ln;sx.globalAlpha=v===0?.8:.6;sx.beginPath();sx.moveTo(ML,y);sx.lineTo(w-MR,y);sx.stroke();sx.globalAlpha=1;sx.fillStyle=mu;sx.fillText(fmtSI(v,3),ML-6,y)}
+      sx.strokeStyle=ln;sx.strokeRect(ML+.5,y0+.5,pw,y1-y0)}
+    const col=css('--t'+(m.color+1));sx.strokeStyle=col;sx.lineWidth=1.4;sx.save();sx.beginPath();sx.rect(ML,y0,pw,y1-y0);sx.clip();
+    const a=res.data[m.i],n=ib-ia;
+    if(n<=pw*2){sx.beginPath();for(let k=ia;k<ib;k++){const x=X((k+1)*res.dt),y=Y(a[k]);k===ia?sx.moveTo(x,y):sx.lineTo(x,y)}sx.stroke()}
+    else{sx.lineWidth=1.6;sx.beginPath();for(let c=0;c<pw;c++){const k0=ia+Math.floor(c*n/pw),k1=Math.max(k0+1,ia+Math.floor((c+1)*n/pw));let mn=Infinity,mx=-Infinity;for(let k=k0;k<k1;k++){const v=a[k];if(v<mn)mn=v;if(v>mx)mx=v}const x=ML+c+.5;sx.moveTo(x,Y(mx));sx.lineTo(x,Y(mn)+.01)}sx.stroke()}
+    sx.restore();
+    sx.textAlign='left';sx.textBaseline='top';sx.fillStyle=col;sx.fillText(m.label+(m.unit?' ['+m.unit+']':''),ML+6,y0+4);
+    if(scur!==null&&scur>=ML&&scur<=ML+pw){const k=Math.min(res.N-1,Math.max(0,Math.round(((T0+(scur-ML)/pw*(T1-T0))/res.dt)-1)));sx.textAlign='right';sx.fillStyle=fg;sx.fillText(fmtSI(a[k],4)+(m.unit?' '+m.unit:''),w-MR-6,y0+4)}});
+  if(scur!==null&&scur>=ML&&scur<=ML+pw){sx.strokeStyle=fg;sx.globalAlpha=.5;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(scur,MT);sx.lineTo(scur,h-MB);sx.stroke();sx.setLineDash([]);sx.globalAlpha=1;
+    $('cur').textContent='t = '+fmtSI(T0+(scur-ML)/pw*(T1-T0),4)+'s'}else $('cur').textContent=''}
+const clampView=()=>{if(!res)return;const L=res.N*res.dt;let s=Math.max(sv.t1-sv.t0,res.dt*20);s=Math.min(s,L);if(sv.t0<0)sv.t0=0;sv.t1=sv.t0+s;if(sv.t1>L){sv.t1=L;sv.t0=L-s}};
+function setView(t0,t1){sv={t0,t1};clampView();thdCache=null;specCache=null;drawScope();renderMeas()}
+sc.addEventListener('pointerdown',e=>{sc.setPointerCapture(e.pointerId);sdrag={x:e.clientX,t0:sv.t0,t1:sv.t1}});
+sc.addEventListener('pointermove',e=>{const r=sc.getBoundingClientRect();scur=e.clientX-r.left;
+  if(sdrag&&res){const pw=r.width-74,dt=(e.clientX-sdrag.x)/pw*(sdrag.t1-sdrag.t0);sv={t0:sdrag.t0-dt,t1:sdrag.t1-dt};clampView();thdCache=null;if(!specMode){renderMeasSoon();drawScope()}return}drawScope()});
+sc.addEventListener('pointerup',()=>{const was=sdrag;sdrag=null;if(was&&specMode){specCache=null;drawScope();renderMeas()}});sc.addEventListener('pointerleave',()=>{scur=null;drawScope()});
+sc.addEventListener('dblclick',()=>{if(res)setView(0,res.N*res.dt)});
+sc.addEventListener('wheel',e=>{if(!res)return;e.preventDefault();const r=sc.getBoundingClientRect(),pw=r.width-74,fx=Math.min(1,Math.max(0,(e.clientX-r.left-62)/pw)),f=Math.exp(e.deltaY*.0015),c=sv.t0+fx*(sv.t1-sv.t0),s=(sv.t1-sv.t0)*f;setView(c-fx*s,c+(1-fx)*s)},{passive:false});
+$('vall').onclick=()=>res&&setView(0,res.N*res.dt);$('vss').onclick=()=>{if(res){const L=res.N*res.dt;setView(L*.75,L)}};
+const zoom=f=>{if(!res)return;const c=(sv.t0+sv.t1)/2,s=(sv.t1-sv.t0)*f;setView(c-s/2,c+s/2)};$('vin').onclick=()=>zoom(.5);$('vout').onclick=()=>zoom(2);$('lanes').onchange=drawScope;
+let mt=null;function renderMeasSoon(){clearTimeout(mt);mt=setTimeout(renderMeas,80)}
+
+
+/* ---------- Spectre (FFT) ---------- */
+let specMode=false,specCache=null;
+function autoFmax(){let f=0;for(const c of circuit.comps)if(c.type==='SW')f=Math.max(f,c.p.fsw);return f>0?3*f:50*(parseSI($('f1').value)||50)}
+function ensureSpec(){if(!res)return null;
+  const ia=Math.max(0,Math.floor(sv.t0/res.dt+1e-6)),ib=Math.min(res.N,Math.ceil(sv.t1/res.dt-1e-6)),win=$('win').value,fa=$('fmax').value.trim().toLowerCase()==='auto',fm=fa?autoFmax():parseSI($('fmax').value);
+  const tr=visTraces(),key=[ia,ib,win,fm,tr.map(m=>m.i).join('.')].join('|');if(specCache&&specCache.key===key)return specCache;
+  const items=tr.map(m=>{const s=spectrum(res.data[m.i],ia,ib,res.dt,win,fm);return{m,s,pk:s?peaks(s,12):[]}});specCache={key,items};return specCache}
+function drawSpectrum(){
+  const{w,h,d}=sizeCanvas(sc);sx.setTransform(d,0,0,d,0,0);sx.fillStyle=css('--canvas');sx.fillRect(0,0,w,h);
+  const fg=css('--fg'),mu=css('--muted'),ln=css('--line');sx.font='11px '+css('--mono');sx.textBaseline='middle';
+  const msg=t=>{sx.fillStyle=mu;sx.textAlign='center';sx.fillText(t,w/2,h/2)};
+  if(!res)return msg('Lancez la simulation pour afficher le spectre.');
+  const sp=ensureSpec();if(!sp||!sp.items.length)return msg('Ajoutez une sonde pour afficher un spectre.');
+  const items=sp.items.filter(it=>it.s);if(!items.length)return msg('La plage affichée est trop courte pour une FFT.');
+  const ML=62,MR=12,MT=8,MB=22,pw=w-ML-MR,db=$('db').checked,sepl=$('lanes').checked,nl=sepl?items.length:1,lh=(h-MT-MB)/nl;
+  const fm=Math.min(...items.map(it=>it.s.fm)),X=f=>ML+f/fm*pw;
+  const ft=niceTicks(0,fm,Math.max(3,Math.floor(pw/90)));sx.textBaseline='top';
+  for(const f of ft.ticks){const x=X(f);sx.textAlign=x>w-30?'right':'center';sx.strokeStyle=ln;sx.globalAlpha=.6;sx.beginPath();sx.moveTo(x,MT);sx.lineTo(x,h-MB);sx.stroke();sx.globalAlpha=1;sx.fillStyle=mu;sx.fillText(fmtSI(f,3)+'Hz',x,h-MB+5)}
+  const kOf=(it,f)=>Math.min(it.s.amps.length-1,Math.max(0,Math.round(f/it.s.df)));
+  const hiOf=it=>{let mx=0;const a=it.s.amps;for(let k=db?0:1;k<a.length&&k*it.s.df<=fm;k++)if(a[k]>mx)mx=a[k];return mx||1};
+  let cursorTxt='';
+  items.forEach((it,li)=>{const lane=sepl?li:0,y0=MT+lane*lh,y1=y0+lh-(sepl&&li<nl-1?6:0);const a=it.s.amps,df=it.s.df;
+    const mx=sepl?hiOf(it):Math.max(...items.map(hiOf)),dbHi=Math.ceil(20*Math.log10(mx)/10)*10+5,dbLo=dbHi-90;
+    const Y=v=>db?y1-(Math.max(20*Math.log10(Math.max(v,1e-12)),dbLo)-dbLo)/(dbHi-dbLo)*(y1-y0):y1-v/(mx*1.1)*(y1-y0);
+    if(sepl||li===0){const yt=db?niceTicks(dbLo,dbHi,Math.max(2,Math.floor((y1-y0)/38))):niceTicks(0,mx*1.1,Math.max(2,Math.floor((y1-y0)/38)));sx.textAlign='right';sx.textBaseline='middle';
+      for(const v of yt.ticks){const y=db?y1-(v-dbLo)/(dbHi-dbLo)*(y1-y0):Y(v);if(y<y0-1||y>y1+1)continue;sx.strokeStyle=ln;sx.globalAlpha=.6;sx.beginPath();sx.moveTo(ML,y);sx.lineTo(w-MR,y);sx.stroke();sx.globalAlpha=1;sx.fillStyle=mu;sx.fillText(fmtSI(v,3)+(db?' dB':''),ML-6,y)}
+      sx.strokeStyle=ln;sx.strokeRect(ML+.5,y0+.5,pw,y1-y0)}
+    const col=css('--t'+(it.m.color+1));sx.strokeStyle=col;sx.lineWidth=1.5;sx.save();sx.beginPath();sx.rect(ML,y0,pw,y1-y0);sx.clip();
+    const kfm=Math.min(a.length-1,Math.floor(fm/df));sx.beginPath();
+    if(kfm<=pw)for(let k=0;k<=kfm;k++){const x=X(k*df);sx.moveTo(x,y1);sx.lineTo(x,Y(a[k]))}
+    else for(let c=0;c<pw;c++){const k0=Math.floor(c*kfm/pw),k1=Math.max(k0+1,Math.floor((c+1)*kfm/pw));let v=0;for(let k=k0;k<k1;k++)if(a[k]>v)v=a[k];const x=ML+c+.5;sx.moveTo(x,y1);sx.lineTo(x,Y(v))}
+    sx.stroke();sx.restore();
+    sx.textAlign='left';sx.textBaseline='top';sx.fillStyle=col;const ac=it.pk.filter(p=>p.f>0&&p.f<=fm),top=ac[0];
+    sx.fillText(it.m.label+(it.m.unit?' ['+it.m.unit+']':'')+(a[0]>1e-9?'   continu = '+fmtSI(a[0],4):'')+(top?'   raie max = '+fmtSI(top.a,4)+(it.m.unit?' '+it.m.unit:'')+' à '+fmtSI(top.f,4)+'Hz':''),ML+6,y0+4);
+    const placed=[];sx.textBaseline='bottom';
+    for(const p of ac.slice(0,6)){const x=X(p.f),y=Math.max(y0+3,Y(p.a));if(placed.some(q=>Math.abs(q-x)<78))continue;placed.push(x);
+      sx.fillStyle=col;sx.beginPath();sx.arc(x,y,2.6,0,7);sx.fill();const right=x>w-MR-90;sx.textAlign=right?'right':'left';
+      sx.fillText(fmtSI(p.a,3)+(it.m.unit?' '+it.m.unit:''),x+(right?-5:5),Math.max(y0+34,y+1)+(y<y0+34?0:0))}
+    sx.textBaseline='top';
+    if(scur!==null&&scur>=ML&&scur<=ML+pw){const f=(scur-ML)/pw*fm,k0=kOf(it,f-3/pw*fm),k1=kOf(it,f+3/pw*fm);let kk=k0;for(let k=k0;k<=k1;k++)if(a[k]>a[kk])kk=k;
+      sx.textAlign='right';sx.fillStyle=fg;sx.fillText(fmtSI(kk*df,4)+'Hz · '+fmtSI(a[kk],4)+(it.m.unit?' '+it.m.unit:''),w-MR-6,y0+4)}});
+  if(scur!==null&&scur>=ML&&scur<=ML+pw){sx.strokeStyle=fg;sx.globalAlpha=.5;sx.setLineDash([3,3]);sx.beginPath();sx.moveTo(scur,MT);sx.lineTo(scur,h-MB);sx.stroke();sx.setLineDash([]);sx.globalAlpha=1;$('cur').textContent='f = '+fmtSI((scur-ML)/pw*fm,4)+'Hz'}else $('cur').textContent=(items[0].s.classic?'FFT sans fenêtre, ':'fenêtre de Hann, ')+items[0].s.ne+' points, résolution '+fmtSI(items[0].s.df,3)+'Hz'}
+function setSpec(on){specMode=on;$('mt').classList.toggle('on',!on);$('ms').classList.toggle('on',on);$('specctl').hidden=!on;$('lanes').parentElement.hidden=false;
+  if(on&&res&&sv.t0<=0&&sv.t1>=res.N*res.dt*.999){const L=res.N*res.dt,f1=parseSI($('f1').value)||50,n=Math.floor(.6*L*f1);sv=n>=1?{t0:L-n/f1,t1:L}:{t0:L*.4,t1:L};thdCache=null;setStatus('Spectre sur '+(n>=1?n+' période(s) entière(s)':'la fin de la simulation')+', hors régime transitoire.')}
+  specCache=null;drawScope();renderMeas()}
+$('align').onclick=()=>{if(!res)return;const f1=parseSI($('f1').value);if(!(f1>0)){setStatus('Fréquence fondamentale invalide.','err');return}
+  const ia=Math.max(0,Math.floor(sv.t0/res.dt+1e-6)),ib=Math.min(res.N,Math.ceil(sv.t1/res.dt-1e-6)),per=1/(f1*res.dt),n=Math.floor((ib-ia)/per+1e-9);
+  if(n<1){setStatus('La plage est plus courte qu’une période de la fondamentale.','err');return}
+  const ns=Math.round(n*per),exact=Math.abs(ns-n*per)<1e-3;sv={t0:(ib-ns)*res.dt,t1:ib*res.dt};thdCache=null;specCache=null;drawScope();renderMeas();
+  setStatus(n+' période(s) entière(s) à '+fmtSI(f1)+'Hz, '+ns+' points'+(exact?'.':'. Le pas ne divise pas exactement la période : léger étalement.'),exact?'ok':'')};
+$('mt').onclick=()=>setSpec(false);$('ms').onclick=()=>setSpec(true);
+['fmax','win','db'].forEach(i=>$(i).onchange=()=>{specCache=null;drawScope();renderMeas()});
+
+/* ---------- Mesures ---------- */
+function renderMeas(){const box=$('meas');box.innerHTML='';if(!res){box.append(el('div',{class:'empty'},'Les mesures apparaissent après une simulation.'));return}
+  const tr=visTraces();if(!tr.length){box.append(el('div',{class:'empty'},'Aucune courbe affichée.'));return}
+  const ia=Math.max(0,Math.floor(sv.t0/res.dt+1e-6)),ib=Math.min(res.N,Math.ceil(sv.t1/res.dt-1e-6)),f1=parseSI($('f1').value)||50;
+  box.append(el('div',{class:'note',style:'margin-bottom:4px'},'Plage : '+fmtSI(sv.t0)+'s à '+fmtSI(sv.t1)+'s'));
+  for(const m of tr){const s=stats(res.data[m.i],ia,ib);if(!s)continue;const u=m.unit,f=v=>fmtSI(v,4)+(u?' '+u:'');
+    const rows=[['moy.',f(s.mean)],['eff.',f(s.rms)],['min',f(s.min)],['max',f(s.max)],['c‑c',f(s.pp)]];
+    if(thdCache&&thdCache[m.i]){const t=thdCache[m.i];rows.push(['THD',t.thd===null?'—':(t.thd*100).toFixed(2)+' %']);rows.push(['fond.',f(t.fund)])}
+    if(specMode){const spc=ensureSpec(),it=spc&&spc.items.find(x=>x.m.i===m.i);if(it&&it.s){const ac=it.pk.filter(p=>p.f>0),dc=it.pk.find(p=>p.f===0);if(ac[0])rows.push(['raie max',f(ac[0].a)],['à',fmtSI(ac[0].f,4)+'Hz']);if(dc)rows.push(['continu',f(dc.a)]);for(const p of ac.slice(1,5))rows.push([fmtSI(p.f,4)+'Hz',f(p.a)])}}
+    const dl=el('dl');for(const[a,b] of rows){dl.append(el('dt',{},a),el('dd',{},b))}
+    box.append(el('div',{class:'meas'},el('b',{},el('i',{style:'background:var(--t'+(m.color+1)+')'}),m.label),dl))}}
+$('thdbtn').onclick=()=>{if(!res)return;const f1=parseSI($('f1').value);if(!(f1>0)){setStatus('Fréquence fondamentale invalide.','err');return}
+  const ia=Math.max(0,Math.floor(sv.t0/res.dt+1e-6)),ib=Math.min(res.N,Math.ceil(sv.t1/res.dt-1e-6));thdCache={};
+  for(const m of visTraces()){const t=thd(res.data[m.i],ia,ib,res.dt,f1);thdCache[m.i]=t||{thd:null,fund:NaN}}
+  const bad=Object.values(thdCache).some(t=>isNaN(t.fund));setStatus(bad?'La plage affichée doit couvrir au moins une période de la fondamentale.':'THD calculé sur un nombre entier de périodes.',bad?'err':'ok');renderMeas()};
+$('f1').onchange=()=>{thdCache=null;specCache=null;renderMeas()};
+
+
+/* ---------- Fichiers ---------- */
+function normalize(){for(const c of circuit.comps)c.p=Object.assign({},DEFAULTS[c.type],c.p||{})}
+function fileText(){return JSON.stringify({format:'commutation',version:1,circuit,probes:probes.map(p=>({comp:p.comp,kind:p.kind,show:p.show})),tstop:$('tstop').value,dt:$('dtin').value},null,1)}
+function showDialog(txt){$('dlgtxt').value=txt;$('dlg').hidden=false;$('dlgtxt').focus();$('dlgtxt').select()}
+async function saveFile(){const data=fileText();let dl=null;
+  try{dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null}catch(e){dl=null}
+  if(!dl){showDialog(data);return}
+  try{await dl.save({filename:'circuit-commutation.json',data});setStatus('Circuit enregistré.','ok')}
+  catch(e){if(e&&e.code==='declined')setStatus('Enregistrement annulé.');else showDialog(data)}}
+function readCircuit(o){
+  if(!o||o.format!=='commutation'||!o.circuit||!Array.isArray(o.circuit.comps)||!Array.isArray(o.circuit.wires))return{err:'Ce fichier n’est pas un circuit Commutation.'};
+  if(o.circuit.comps.length>2000||o.circuit.wires.length>5000)return{err:'Circuit trop grand.'};
+  const num=v=>Number.isFinite(+v)&&v!==null&&v!=='',comps=[];
+  for(const c of o.circuit.comps){
+    if(!c||!(c.type in DEFAULTS||c.type==='gnd')||!num(c.x)||!num(c.y))return{err:'Fichier invalide : composant inconnu ou position manquante.'};
+    const def=DEFAULTS[c.type]||{},p={};for(const k of Object.keys(def)){const v=c.p&&c.p[k];p[k]=typeof def[k]==='number'?(num(v)?+v:def[k]):(typeof v==='string'?v:def[k])}
+    comps.push({id:Math.round(+c.id)||0,type:c.type,x:Math.round(+c.x),y:Math.round(+c.y),rot:((Math.round(+c.rot)||0)%4+4)%4,p,name:String(c.name||'').slice(0,24)})}
+  const ids=new Set(comps.map(c=>c.id));if(ids.size!==comps.length||ids.has(0))return{err:'Fichier invalide : identifiants de composants en double.'};
+  const wires=[];for(const w of o.circuit.wires){if(!w||![w.x1,w.y1,w.x2,w.y2].every(num))return{err:'Fichier invalide : fil mal défini.'};
+    const q={x1:Math.round(+w.x1),y1:Math.round(+w.y1),x2:Math.round(+w.x2),y2:Math.round(+w.y2)};if(q.x1!==q.x2&&q.y1!==q.y2)return{err:'Fichier invalide : un fil n’est pas horizontal ou vertical.'};wires.push(q)}
+  const pr=(Array.isArray(o.probes)?o.probes:[]).filter(p=>p&&ids.has(p.comp)&&KIND[p.kind]).map(p=>({comp:p.comp,kind:p.kind,show:p.show!==false}));
+  return{comps,wires,pr,tstop:typeof o.tstop==='string'&&!isNaN(parseSI(o.tstop))?o.tstop:'5m',dt:typeof o.dt==='string'?o.dt:'auto'}}
+function loadText(txt,name){let o;try{o=JSON.parse(txt)}catch(e){setStatus('Fichier illisible : ce n’est pas du JSON valide.','err');return}
+  const r=readCircuit(o);if(r.err){setStatus(r.err,'err');return}
+  snap();circuit={comps:r.comps,wires:r.wires};probes=r.pr.map(p=>({id:pidc++,comp:p.comp,kind:p.kind,show:p.show}));normalize();
+  idc=Math.max(0,...circuit.comps.map(c=>c.id))+1;$('tstop').value=r.tstop;$('dtin').value=r.dt;sel=null;res=null;setTool('select');fit();persist();renderInsp();renderProbes();draw();drawScope();renderMeas();
+  if(compile(circuit).error){setStatus((name||'Fichier')+' ouvert. '+compile(circuit).error,'err')}else simulate()}
+function readFile(f){if(!f)return;if(f.size>5e6){setStatus('Fichier trop volumineux.','err');return}const fr=new FileReader();fr.onload=()=>loadText(String(fr.result),f.name);fr.onerror=()=>setStatus('Lecture du fichier impossible.','err');fr.readAsText(f)}
+$('save').onclick=saveFile;$('open').onclick=()=>$('file').click();
+$('file').onchange=e=>{readFile(e.target.files[0]);e.target.value=''};
+$('dlgclose').onclick=()=>{$('dlg').hidden=true};
+$('dlgcopy').onclick=async()=>{try{await navigator.clipboard.writeText($('dlgtxt').value);setStatus('Contenu copié.','ok')}catch(e){$('dlgtxt').select();setStatus('Sélection faite : copiez avec Ctrl+C.')}};
+const sbox=$('schbox');sbox.addEventListener('dragover',e=>e.preventDefault());sbox.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)readFile(f)});
+
+/* ---------- Exemples, démarrage ---------- */
+function fit(){const{w,h}=sizeCanvas(cv);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const add=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)};
+  for(const c of circuit.comps)for(const p of pinsOf(c))add(p[0],p[1]);for(const wr of circuit.wires){add(wr.x1,wr.y1);add(wr.x2,wr.y2)}
+  if(x0>x1){view={ox:30,oy:30,s:1};return}const s=Math.max(.35,Math.min(1.15,Math.min((w-60)/((x1-x0+3)*G),(h-60)/((y1-y0+4)*G))));
+  view.s=s;view.ox=(w-(x1-x0)*G*s)/2-x0*G*s;view.oy=(h-(y1-y0)*G*s)/2-y0*G*s}
+function loadPreset(name){const p=PRESETS[name]();snap();circuit={comps:p.comps,wires:p.wires};idc=Math.max(...p.comps.map(c=>c.id))+1;
+  probes=p.probes.map(q=>({id:pidc++,comp:q.comp,kind:q.kind,show:true}));sel=null;$('tstop').value=fmtSI(p.tstop);$('dtin').value='auto';res=null;setTool('select');fit();persist();renderInsp();renderProbes();draw();simulate()}
+$('preset').onchange=e=>{if(e.target.value)loadPreset(e.target.value);e.target.value=''};
+$('run').onclick=simulate;$('undo').onclick=undo;
+$('clear').onclick=()=>{snap();circuit={comps:[],wires:[]};probes=[];sel=null;res=null;view={ox:40,oy:40,s:1};persist();renderInsp();renderProbes();draw();drawScope();renderMeas();setStatus('Nouveau circuit. Posez des composants depuis la palette.')};
+$('tstop').onchange=persist;$('dtin').onchange=persist;
+window.addEventListener('resize',()=>{draw();drawScope()});
+if(window.matchMedia)matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{buildPalette();setTool(tool);drawScope()});
+
+/* ---------- Disposition redimensionnable ---------- */
+let ui={};try{ui=JSON.parse(store.get('commutation-ui')||'{}')||{}}catch(e){ui={}}
+const ctr=document.querySelector('.center'),work=document.querySelector('.work');
+function applyUI(){ctr.classList.toggle('sbs',ui.layout==='side');ctr.style.setProperty('--a',Math.round((ui.a||.53)*1000)/10+'%');work.style.setProperty('--side',(ui.side||300)+'px');
+  $('layout').textContent=ui.layout==='side'?'Empilé':'Côte à côte';$('gsplit').setAttribute('aria-orientation',ui.layout==='side'?'vertical':'horizontal')}
+const saveUI=()=>store.set('commutation-ui',JSON.stringify(ui));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function splitTo(frac){ui.a=clamp(frac,.15,.85);applyUI()}
+function sideTo(px){const w=work.getBoundingClientRect().width;ui.side=Math.round(clamp(px,200,Math.min(640,w*.55)));applyUI()}
+function gutter(g,move,step,reset){
+  g.addEventListener('pointerdown',e=>{e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add('act')});
+  g.addEventListener('pointermove',e=>{if(g.hasPointerCapture(e.pointerId))move(e)});
+  const end=()=>{g.classList.remove('act');saveUI()};g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
+  g.addEventListener('dblclick',()=>{reset();saveUI()});
+  g.addEventListener('keydown',e=>{const d={ArrowLeft:-1,ArrowUp:-1,ArrowRight:1,ArrowDown:1}[e.key];if(d){e.preventDefault();step(d);saveUI()}})}
+gutter($('gsplit'),e=>{const r=ctr.getBoundingClientRect();splitTo(ui.layout==='side'?(e.clientX-r.left)/r.width:(e.clientY-r.top)/r.height)},d=>splitTo((ui.a||.53)+d*.03),()=>{delete ui.a;applyUI()});
+gutter($('gside'),e=>sideTo(work.getBoundingClientRect().right-e.clientX-3),d=>sideTo((ui.side||300)-d*24),()=>{delete ui.side;applyUI()});
+$('layout').onclick=()=>{ui.layout=ui.layout==='side'?'stack':'side';applyUI();saveUI();requestAnimationFrame(()=>{fit();draw();drawScope()})};
+if(window.ResizeObserver){let rf=0;const ro=new ResizeObserver(()=>{cancelAnimationFrame(rf);rf=requestAnimationFrame(()=>{draw();drawScope()})});ro.observe($('schbox'));ro.observe($('splot'))}
+applyUI();
+function boot(){buildPalette();setTool('select');let ok=false;const raw=store.get('commutation-v1');
+  if(raw){try{const o=JSON.parse(raw);if(o.circuit&&o.circuit.comps.length){circuit=o.circuit;normalize();probes=o.probes||[];idc=o.idc||100;pidc=o.pidc||100;$('tstop').value=o.tstop||'5m';$('dtin').value=o.dt||'auto';ok=true}}catch(e){}}
+  if(ok){fit();renderInsp();renderProbes();draw();simulate()}else loadPreset('buck');undoStack=[]}
+requestAnimationFrame(boot);
+</script>
+
+</body></html>
