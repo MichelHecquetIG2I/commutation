@@ -20,6 +20,27 @@ Une fois la page publiée (GitHub Pages : *Settings → Pages → Deploy from a 
 | Circuit R-L-E (U = 24 V, R = 2 Ω, L = 20 mH, E = 12 V, τ = 10 ms) — avec puissance p = R·i² et énergie W = ∫p dt dissipées dans R | `https://michelhecquetig2i.github.io/commutation/?ex=rle` |
 | Machine à courant continu (modèle équivalent) | `https://michelhecquetig2i.github.io/commutation/?ex=mcc` |
 
+Sur le schéma, les repères **a** et **b** indiquent les bornes de chaque sonde de tension (u = Va − Vb), dans la couleur de la courbe correspondante.
+
+## Tutoriel vidéo
+
+Le bouton **▶ Tutoriel** de l’en-tête ouvre trois courtes vidéos (fichiers dans `tutoriel/`) :
+
+| Vidéo | Lien direct |
+|---|---|
+| 1 · Construire un schéma | `https://michelhecquetig2i.github.io/commutation/?tuto=1` |
+| 2 · Visualiser les courbes | `https://michelhecquetig2i.github.io/commutation/?tuto=2` |
+| 3 · Mesures et calculs | `https://michelhecquetig2i.github.io/commutation/?tuto=3` |
+
+Les vidéos sont enregistrées automatiquement en pilotant l’application : après une modification de l’interface,
+lancer un serveur local (`python3 -m http.server 8765`) puis `python3 tools/tuto/record.py` (Playwright + ffmpeg).
+
+## SimCircuit
+
+`SimCircuit/` est une version allégée limitée aux circuits RL, RC, R-L-E et machine à courant continu :
+`https://michelhecquetig2i.github.io/commutation/SimCircuit/` (mêmes liens `?ex=rl`, `?ex=rc`, `?ex=rle`, `?ex=mcc` et `?tuto=1…3`).
+Ce dossier est généré : modifier `index.html` à la racine puis lancer `python3 tools/build_simcircuit.py`.
+
 Les exemples d’électronique de puissance sont aussi accessibles : `buck`, `boost`, `buckpi`, `flyback`, `hbridge`, `spwmblk`, `inv3`, `rect3`, `scr1`, `scr3`.
 
 Les mêmes circuits sont fournis en fichiers dans `exemples/` (à ouvrir avec le bouton **Ouvrir…**).

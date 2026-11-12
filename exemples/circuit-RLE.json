@@ -118,7 +118,8 @@
    "a": 2,
    "b": 3,
    "par": 0,
-   "show": false
+   "show": false,
+   "name": "Pr : puissance dissipée dans la résistance"
   },
   {
    "kind": "m",
@@ -126,7 +127,8 @@
    "a": 4,
    "b": -1,
    "par": 0,
-   "show": false
+   "show": false,
+   "name": "Wr : énergie dissipée dans la résistance"
   }
  ],
  "scopes": [
