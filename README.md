@@ -15,7 +15,7 @@ Une fois la page publiée (GitHub Pages : *Settings → Pages → Deploy from a 
 
 | Exemple | Lien |
 |---|---|
-| Circuit RL (E = 12 V, R = 10 Ω, L = 100 mH, τ = 10 ms) | `https://michelhecquetig2i.github.io/commutation/?ex=rl` |
+| Circuit RL (E = 10 V, R = 10 Ω, L = 100 mH, τ = 10 ms) — avec Pr (puissance dissipée dans R) et El (énergie stockée dans L) | `https://michelhecquetig2i.github.io/commutation/?ex=rl` |
 | Circuit RC (E = 10 V, R = 1 kΩ, C = 10 µF, τ = 10 ms) | `https://michelhecquetig2i.github.io/commutation/?ex=rc` |
 | Circuit R-L-E (U = 24 V, R = 2 Ω, L = 20 mH, E = 12 V, τ = 10 ms) — avec puissance p = R·i² et énergie W = ∫p dt dissipées dans R | `https://michelhecquetig2i.github.io/commutation/?ex=rle` |
 | Machine à courant continu (modèle équivalent) | `https://michelhecquetig2i.github.io/commutation/?ex=mcc` |

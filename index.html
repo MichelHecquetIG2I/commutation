@@ -413,9 +413,12 @@ Builder.prototype.out=function(extra){
   return{comps:this.comps,wires:this.wires,tstop:extra.tstop,probes:extra.probes.map(([n,k,sh])=>({comp:by(n),kind:k,show:sh!==false})),math:extra.math||[],scopes:extra.scopes||null,title:extra.title,dt:extra.dt}};
 const PRESETS={
  rl(){const b=new Builder();
-  b.add('Vdc',6,12,1,{V:12},'E');b.add('R',10,10,0,{R:10},'R');b.add('L',16,12,1,{L:100e-3},'L');b.add('gnd',6,14,0,{},'GND');
+  b.add('Vdc',6,12,1,{V:10},'E');b.add('R',10,10,0,{R:10},'R');b.add('L',16,12,1,{L:100e-3},'L');b.add('gnd',6,14,0,{},'GND');
   b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
-  return b.out({title:'Circuit RL (τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v']]})},
+  /* Oscilloscope 2 : Pr = vR·iR = R·i² (puissance dissipée dans R) ; El = ∫vL·iL dt = ½·L·i² (énergie stockée dans L). */
+  return b.out({title:'Circuit RL (τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v'],['R','i',false]],
+    math:[{op:'mul',a:2,b:3,name:'Pr : puissance dissipée dans la résistance'},{op:'mul',a:1,b:0},{op:'int',a:5,name:'El : énergie stockée dans l’inductance'}],
+    scopes:[[0,1,2],[4,6]]})},
  rc(){const b=new Builder();
   b.add('Vdc',6,12,1,{V:10},'E');b.add('R',10,10,0,{R:1000},'R');b.add('C',16,12,1,{C:10e-6},'C');b.add('gnd',6,14,0,{},'GND');
   b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
@@ -804,7 +807,7 @@ function addProbe(comp,kind){if(probes.some(p=>p.comp===comp&&p.kind===kind))ret
 const MOPS={add:{l:'A + B',b:1},sub:{l:'A − B',b:1},mul:{l:'A × B',b:1},div:{l:'A ÷ B',b:1},gain:{l:'k × A',p:'gain k',d:1},rms:{l:'valeur efficace glissante',p:'fenêtre (s)',d:.02},avg:{l:'moyenne glissante',p:'fenêtre (s)',d:.02},abs:{l:'|A|'},der:{l:'dérivée dA/dt'},int:{l:'intégrale ∫A dt'}};
 let mf={op:'mul',a:0,b:0};
 function pname(id){const q=probes.find(p=>p.id===id);return q?probeName(q):'?'}
-function mathName(p){const o=MOPS[p.op]||{l:'?'},A=pname(p.a),B=pname(p.b);
+function mathName(p){if(p.name)return p.name;const o=MOPS[p.op]||{l:'?'},A=pname(p.a),B=pname(p.b);
   switch(p.op){case'add':return A+' + '+B;case'sub':return A+' − '+B;case'mul':return A+' × '+B;case'div':return A+' ÷ '+B;case'gain':return fmtSI(p.par)+' × '+A;
     case'rms':return'RMS('+A+')';case'avg':return'moy('+A+')';case'abs':return'|'+A+'|';case'der':return'd/dt '+A;case'int':return'∫ '+A;default:return o.l}}
 function prune(){let ch=true;while(ch){ch=false;const ids=new Set(probes.map(p=>p.id));const n=probes.filter(p=>p.kind!=='m'||(MOPS[p.op]&&ids.has(p.a)&&(!MOPS[p.op].b||ids.has(p.b))));if(n.length!==probes.length){probes=n;ch=true}}}
@@ -1044,7 +1047,7 @@ function normalize(){for(const c of circuit.comps){c.p=Object.assign({},DEFAULTS
 function cleanAnn(a){const o={};for(const k of['v','i']){const q=a&&a[k];if(q&&(q.dir==='ab'||q.dir==='ba'))o[k]={dir:q.dir,label:String(q.label||'').slice(0,24)}}return o}
 function cleanArrows(l){const n=v=>Number.isFinite(+v)&&v!==null&&v!=='';return(Array.isArray(l)?l:[]).filter(a=>a&&[a.x1,a.y1,a.x2,a.y2].every(n)).slice(0,500).map(a=>({x1:Math.round(+a.x1),y1:Math.round(+a.y1),x2:Math.round(+a.x2),y2:Math.round(+a.y2),label:String(a.label||'').slice(0,24)})).filter(a=>a.x1!==a.x2||a.y1!==a.y2)}
 const visIn0=p=>!scopes.length||scopes[0].sel.has(p.id);
-function fileText(){return JSON.stringify({format:'commutation',version:1,circuit,probes:probes.map(p=>p.kind==='m'?{kind:'m',op:p.op,a:probes.findIndex(q=>q.id===p.a),b:probes.findIndex(q=>q.id===p.b),par:p.par,show:visIn0(p)}:{comp:p.comp,kind:p.kind,show:visIn0(p)}),scopes:scopes.map(q=>{const st=q.getState();st.sel=probes.map((p,i)=>q.sel.has(p.id)?i:-1).filter(i=>i>=0);return st}),tstop:$('tstop').value,dt:$('dtin').value},null,1)}
+function fileText(){return JSON.stringify({format:'commutation',version:1,circuit,probes:probes.map(p=>p.kind==='m'?{kind:'m',op:p.op,a:probes.findIndex(q=>q.id===p.a),b:probes.findIndex(q=>q.id===p.b),par:p.par,show:visIn0(p),...(p.name?{name:p.name}:{})}:{comp:p.comp,kind:p.kind,show:visIn0(p)}),scopes:scopes.map(q=>{const st=q.getState();st.sel=probes.map((p,i)=>q.sel.has(p.id)?i:-1).filter(i=>i>=0);return st}),tstop:$('tstop').value,dt:$('dtin').value},null,1)}
 function downloadFile(data,filename){const url=URL.createObjectURL(new Blob([data],{type:'application/json;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function saveFile(){const data=fileText();
   if(window.claude&&window.claude.use){try{const dl=await window.claude.use('downloads');if(dl){await dl.save({filename:'circuit-commutation.json',data});setStatus('Circuit enregistré.','ok');return}}
@@ -1062,12 +1065,12 @@ function readCircuit(o){
   const ids=new Set(comps.map(c=>c.id));if(ids.size!==comps.length||ids.has(0))return{err:'Fichier invalide : identifiants de composants en double.'};
   const wires=[];for(const w of o.circuit.wires){if(!w||![w.x1,w.y1,w.x2,w.y2].every(num))return{err:'Fichier invalide : fil mal défini.'};
     const q={x1:Math.round(+w.x1),y1:Math.round(+w.y1),x2:Math.round(+w.x2),y2:Math.round(+w.y2)};if(q.x1!==q.x2&&q.y1!==q.y2)return{err:'Fichier invalide : un fil n’est pas horizontal ou vertical.'};wires.push(q)}
-  const pr=(Array.isArray(o.probes)?o.probes:[]).map((p,i)=>!p?null:p.kind==='m'?(MOPS[p.op]?{kind:'m',op:p.op,a:+p.a,b:+p.b,par:Number.isFinite(+p.par)?+p.par:0,show:p.show!==false,i}:null):(ids.has(p.comp)&&KIND[p.kind]&&p.kind!=='m'?{comp:p.comp,kind:p.kind,show:p.show!==false,i}:null)).filter(Boolean);
+  const pr=(Array.isArray(o.probes)?o.probes:[]).map((p,i)=>!p?null:p.kind==='m'?(MOPS[p.op]?{kind:'m',op:p.op,a:+p.a,b:+p.b,par:Number.isFinite(+p.par)?+p.par:0,show:p.show!==false,...(typeof p.name==='string'&&p.name?{name:p.name.slice(0,80)}:{}),i}:null):(ids.has(p.comp)&&KIND[p.kind]&&p.kind!=='m'?{comp:p.comp,kind:p.kind,show:p.show!==false,i}:null)).filter(Boolean);
   const sc=Array.isArray(o.scopes)&&o.scopes.length?o.scopes.slice(0,6).map(q=>({sel:Array.isArray(q&&q.sel)?q.sel.filter(Number.isInteger):[],spec:!!(q&&q.spec),lanes:!q||q.lanes!==false,fmax:q&&typeof q.fmax==='string'?q.fmax.slice(0,12):'auto',win:q&&q.win==='hann'?'hann':'none',db:!!(q&&q.db)})):null;
   return{comps,wires,arrows:cleanArrows(o.circuit.arrows),pr,sc,tstop:typeof o.tstop==='string'&&!isNaN(parseSI(o.tstop))?o.tstop:'5m',dt:typeof o.dt==='string'?o.dt:'auto'}}
 function loadText(txt,name){let o;try{o=JSON.parse(txt)}catch(e){setStatus('Fichier illisible : ce n’est pas du JSON valide.','err');return}
   const r=readCircuit(o);if(r.err){setStatus(r.err,'err');return}
-  snap();circuit={comps:r.comps,wires:r.wires,arrows:r.arrows};const idm=new Map();probes=r.pr.map(p=>{const id=pidc++;idm.set(p.i,id);return p.kind==='m'?{id,kind:'m',comp:0,op:p.op,a:p.a,b:p.b,par:p.par,show:p.show}:{id,comp:p.comp,kind:p.kind,show:p.show}});
+  snap();circuit={comps:r.comps,wires:r.wires,arrows:r.arrows};const idm=new Map();probes=r.pr.map(p=>{const id=pidc++;idm.set(p.i,id);return p.kind==='m'?{id,kind:'m',comp:0,op:p.op,a:p.a,b:p.b,par:p.par,show:p.show,...(p.name?{name:p.name}:{})}:{id,comp:p.comp,kind:p.kind,show:p.show}});
   for(const p of probes)if(p.kind==='m'){p.a=idm.get(p.a)||0;p.b=MOPS[p.op].b?(idm.get(p.b)||0):0}
   prune();normalize();
   restoreScopes(r.sc?r.sc.map(q=>({...q,sel:q.sel.map(i=>idm.get(i)).filter(Boolean)})):[{sel:probes.filter(p=>p.show!==false).map(p=>p.id)}]);
@@ -1085,7 +1088,7 @@ function fit(){const{w,h}=sizeCanvas(cv);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const
   view.s=s;view.ox=(w-(x1-x0)*G*s)/2-x0*G*s;view.oy=(h-(y1-y0)*G*s)/2-y0*G*s}
 function loadPreset(name){const p=PRESETS[name]();snap();circuit={comps:p.comps,wires:p.wires,arrows:[]};for(const c of circuit.comps)c.ann=cleanAnn(c.ann);idc=Math.max(...p.comps.map(c=>c.id))+1;
   probes=p.probes.map(q=>({id:pidc++,comp:q.comp,kind:q.kind,show:q.show!==false}));
-  for(const m of p.math||[])probes.push({id:pidc++,kind:'m',comp:0,op:m.op,a:probes[m.a].id,b:m.b!=null?probes[m.b].id:0,par:m.par||0,show:true});
+  for(const m of p.math||[])probes.push({id:pidc++,kind:'m',comp:0,op:m.op,a:probes[m.a].id,b:m.b!=null?probes[m.b].id:0,par:m.par||0,show:true,...(m.name?{name:m.name}:{})});
   restoreScopes(p.scopes?p.scopes.map(ix=>({sel:ix.map(i=>probes[i].id)})):[{sel:probes.filter(q=>q.show!==false).map(q=>q.id)}]);sel=null;$('tstop').value=fmtSI(p.tstop);$('dtin').value=p.dt?fmtSI(p.dt):'auto';res=null;setTool('select');fit();persist();renderInsp();renderProbes();draw();simulate()}
 $('preset').onchange=e=>{if(e.target.value)loadPreset(e.target.value);e.target.value=''};
 $('run').onclick=simulate;$('undo').onclick=undo;
