@@ -410,7 +410,7 @@ Builder.prototype.wire=function(x1,y1,x2,y2){if(x1===x2&&y1===y2)return;
   if(x1!==x2&&y1!==y2){this.wires.push({x1,y1,x2,y2:y1},{x1:x2,y1:y1,x2,y2})}else this.wires.push({x1,y1,x2,y2})};
 Builder.prototype.out=function(extra){
   const by=n=>this.comps.find(c=>c.name===n).id;
-  return{comps:this.comps,wires:this.wires,tstop:extra.tstop,probes:extra.probes.map(([n,k])=>({comp:by(n),kind:k})),title:extra.title,dt:extra.dt}};
+  return{comps:this.comps,wires:this.wires,tstop:extra.tstop,probes:extra.probes.map(([n,k,sh])=>({comp:by(n),kind:k,show:sh!==false})),math:extra.math||[],scopes:extra.scopes||null,title:extra.title,dt:extra.dt}};
 const PRESETS={
  rl(){const b=new Builder();
   b.add('Vdc',6,12,1,{V:12},'E');b.add('R',10,10,0,{R:10},'R');b.add('L',16,12,1,{L:100e-3},'L');b.add('gnd',6,14,0,{},'GND');
@@ -426,7 +426,9 @@ const PRESETS={
   b.add('Vdc',6,12,1,{V:24},'U');b.add('R',10,10,0,{R:2},'R');b.add('L',16,10,0,{L:20e-3},'L');
   b.add('Vdc',22,12,1,{V:12},'E');b.add('gnd',6,14,0,{},'GND');
   b.wire(6,10,8,10);b.wire(12,10,14,10);b.wire(18,10,22,10);b.wire(6,14,22,14);
-  return b.out({title:'Circuit R-L-E (U = 24 V, E = 12 V, τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v']]})},
+  /* Puissance et énergie dissipées dans R : p = vR·iR = R·i², W(t) = ∫p dt (2e oscilloscope). */
+  return b.out({title:'Circuit R-L-E (U = 24 V, E = 12 V, τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v'],['R','i',false]],
+    math:[{op:'mul',a:2,b:3},{op:'int',a:4}],scopes:[[0,1,2],[4,5]]})},
  mcc(){const b=new Builder();
   /* Machine à courant continu, modèle électrique équivalent :
      U = Ra·i + La·di/dt + E,  E = K·Ω,  J·dΩ/dt = K·i − f·Ω − Cr
@@ -809,7 +811,7 @@ function prune(){let ch=true;while(ch){ch=false;const ids=new Set(probes.map(p=>
 function mathUnit(op,ua,ub){
   if(op==='mul'){if((ua==='V'&&ub==='A')||(ua==='A'&&ub==='V'))return'W';return ua&&ub?ua+'·'+ub:ua||ub}
   if(op==='div'){if(ua==='V'&&ub==='A')return'Ω';if(ua==='A'&&ub==='V')return'S';if(ua===ub)return'';return ua&&ub?ua+'/'+ub:ua?ua:ub?'1/'+ub:''}
-  if(op==='der')return ua?ua+'/s':'1/s';if(op==='int')return ua?ua+'·s':'s';return ua}
+  if(op==='der')return ua?ua+'/s':'1/s';if(op==='int')return ua==='W'?'J':ua?ua+'·s':'s';return ua}
 function mathCompute(p,A,B,dt){const L=A.length,o=new Float32Array(L);
   switch(p.op){
     case'add':for(let k=0;k<L;k++)o[k]=A[k]+B[k];break;
@@ -1082,7 +1084,9 @@ function fit(){const{w,h}=sizeCanvas(cv);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const
   if(x0>x1){view={ox:30,oy:30,s:1};return}const s=Math.max(.35,Math.min(1.15,Math.min((w-60)/((x1-x0+3)*G),(h-60)/((y1-y0+4)*G))));
   view.s=s;view.ox=(w-(x1-x0)*G*s)/2-x0*G*s;view.oy=(h-(y1-y0)*G*s)/2-y0*G*s}
 function loadPreset(name){const p=PRESETS[name]();snap();circuit={comps:p.comps,wires:p.wires,arrows:[]};for(const c of circuit.comps)c.ann=cleanAnn(c.ann);idc=Math.max(...p.comps.map(c=>c.id))+1;
-  probes=p.probes.map(q=>({id:pidc++,comp:q.comp,kind:q.kind,show:true}));restoreScopes([{sel:probes.map(q=>q.id)}]);sel=null;$('tstop').value=fmtSI(p.tstop);$('dtin').value=p.dt?fmtSI(p.dt):'auto';res=null;setTool('select');fit();persist();renderInsp();renderProbes();draw();simulate()}
+  probes=p.probes.map(q=>({id:pidc++,comp:q.comp,kind:q.kind,show:q.show!==false}));
+  for(const m of p.math||[])probes.push({id:pidc++,kind:'m',comp:0,op:m.op,a:probes[m.a].id,b:m.b!=null?probes[m.b].id:0,par:m.par||0,show:true});
+  restoreScopes(p.scopes?p.scopes.map(ix=>({sel:ix.map(i=>probes[i].id)})):[{sel:probes.filter(q=>q.show!==false).map(q=>q.id)}]);sel=null;$('tstop').value=fmtSI(p.tstop);$('dtin').value=p.dt?fmtSI(p.dt):'auto';res=null;setTool('select');fit();persist();renderInsp();renderProbes();draw();simulate()}
 $('preset').onchange=e=>{if(e.target.value)loadPreset(e.target.value);e.target.value=''};
 $('run').onclick=simulate;$('undo').onclick=undo;
 $('clear').onclick=()=>{snap();circuit={comps:[],wires:[],arrows:[]};probes=[];restoreScopes([{}]);sel=null;res=null;view={ox:40,oy:40,s:1};persist();renderInsp();renderProbes();draw();drawScope();renderMeas();setStatus('Nouveau circuit. Posez des composants depuis la palette.')};
