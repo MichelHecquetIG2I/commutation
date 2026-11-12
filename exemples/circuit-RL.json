@@ -1,0 +1,109 @@
+{
+ "format": "commutation",
+ "version": 1,
+ "circuit": {
+  "comps": [
+   {
+    "id": 1,
+    "type": "Vdc",
+    "x": 6,
+    "y": 12,
+    "rot": 1,
+    "p": {
+     "V": 12
+    },
+    "name": "E",
+    "ann": {}
+   },
+   {
+    "id": 2,
+    "type": "R",
+    "x": 10,
+    "y": 10,
+    "rot": 0,
+    "p": {
+     "R": 10
+    },
+    "name": "R",
+    "ann": {}
+   },
+   {
+    "id": 3,
+    "type": "L",
+    "x": 16,
+    "y": 12,
+    "rot": 1,
+    "p": {
+     "L": 0.1,
+     "i0": 0
+    },
+    "name": "L",
+    "ann": {}
+   },
+   {
+    "id": 4,
+    "type": "gnd",
+    "x": 6,
+    "y": 14,
+    "rot": 0,
+    "p": {},
+    "name": "GND",
+    "ann": {}
+   }
+  ],
+  "wires": [
+   {
+    "x1": 6,
+    "y1": 10,
+    "x2": 8,
+    "y2": 10
+   },
+   {
+    "x1": 12,
+    "y1": 10,
+    "x2": 16,
+    "y2": 10
+   },
+   {
+    "x1": 6,
+    "y1": 14,
+    "x2": 16,
+    "y2": 14
+   }
+  ],
+  "arrows": []
+ },
+ "probes": [
+  {
+   "comp": 3,
+   "kind": "i",
+   "show": true
+  },
+  {
+   "comp": 3,
+   "kind": "v",
+   "show": true
+  },
+  {
+   "comp": 2,
+   "kind": "v",
+   "show": true
+  }
+ ],
+ "scopes": [
+  {
+   "sel": [
+    0,
+    1,
+    2
+   ],
+   "spec": false,
+   "lanes": true,
+   "fmax": "auto",
+   "win": "none",
+   "db": false
+  }
+ ],
+ "tstop": "60m",
+ "dt": "50µ"
+}
