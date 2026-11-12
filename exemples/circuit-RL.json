@@ -10,7 +10,7 @@
     "y": 12,
     "rot": 1,
     "p": {
-     "V": 12
+     "V": 10
     },
     "name": "E",
     "ann": {}
@@ -88,6 +88,37 @@
    "comp": 2,
    "kind": "v",
    "show": true
+  },
+  {
+   "comp": 2,
+   "kind": "i",
+   "show": false
+  },
+  {
+   "kind": "m",
+   "op": "mul",
+   "a": 2,
+   "b": 3,
+   "par": 0,
+   "show": false,
+   "name": "Pr : puissance dissipée dans la résistance"
+  },
+  {
+   "kind": "m",
+   "op": "mul",
+   "a": 1,
+   "b": 0,
+   "par": 0,
+   "show": false
+  },
+  {
+   "kind": "m",
+   "op": "int",
+   "a": 5,
+   "b": -1,
+   "par": 0,
+   "show": false,
+   "name": "El : énergie stockée dans l’inductance"
   }
  ],
  "scopes": [
@@ -96,6 +127,17 @@
     0,
     1,
     2
+   ],
+   "spec": false,
+   "lanes": true,
+   "fmax": "auto",
+   "win": "none",
+   "db": false
+  },
+  {
+   "sel": [
+    4,
+    6
    ],
    "spec": false,
    "lanes": true,
