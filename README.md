@@ -8,3 +8,27 @@ L’application doit être publiée sur un site HTTPS (par exemple GitHub Pages)
 - **iPhone ou iPad** : dans Safari, touchez **Partager**, puis **Sur l’écran d’accueil**.
 
 Les circuits sont enregistrés dans le stockage local du navigateur sur l’appareil. Ils ne sont pas synchronisés entre appareils ; pensez à utiliser **Enregistrer** pour en garder une copie.
+
+## Liens directs vers les exemples (Moodle)
+
+Une fois la page publiée (GitHub Pages : *Settings → Pages → Deploy from a branch → main / (root)*), chaque exemple s’ouvre directement avec le paramètre `ex` :
+
+| Exemple | Lien |
+|---|---|
+| Circuit RL (E = 12 V, R = 10 Ω, L = 100 mH, τ = 10 ms) | `https://michelhecquetig2i.github.io/commutation/?ex=rl` |
+| Circuit RC (E = 10 V, R = 1 kΩ, C = 10 µF, τ = 10 ms) | `https://michelhecquetig2i.github.io/commutation/?ex=rc` |
+| Machine à courant continu (modèle équivalent) | `https://michelhecquetig2i.github.io/commutation/?ex=mcc` |
+
+Les exemples d’électronique de puissance sont aussi accessibles : `buck`, `boost`, `buckpi`, `flyback`, `hbridge`, `spwmblk`, `inv3`, `rect3`, `scr1`, `scr3`.
+
+Les mêmes circuits sont fournis en fichiers dans `exemples/` (à ouvrir avec le bouton **Ouvrir…**).
+
+### Modèle de la machine à courant continu
+
+U = Ra·i + La·di/dt + E, E = K·Ω et J·dΩ/dt = K·i − f·Ω − Cr. La partie mécanique est représentée par des composants électriques équivalents, la tension E = K·Ω jouant le rôle de la vitesse :
+
+- inertie J → condensateur J/K² ;
+- frottement visqueux f → résistance K²/f ;
+- couple résistant Cr → source de courant Cr/K.
+
+Valeurs typiques retenues (24 V, ~100 W) : Ra = 0,5 Ω, La = 1 mH, K = 0,06 N·m/A, J = 10⁻⁴ kg·m², f = 10⁻⁵ N·m·s/rad, Cr = 0,2 N·m. En régime établi : I ≈ 3,4 A, E ≈ 22,3 V, soit Ω ≈ 372 rad/s (≈ 3 550 tr/min).

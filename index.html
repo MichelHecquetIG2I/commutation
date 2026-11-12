@@ -109,6 +109,11 @@ input.num{width:84px;font-family:var(--mono);text-align:right}
     <div class="grp"><span class="lbl">Exemple</span>
       <select id="preset" aria-label="Charger un exemple">
         <option value="">Choisir…</option>
+        <optgroup label="Circuits de base">
+        <option value="rl">Circuit RL</option>
+        <option value="rc">Circuit RC</option>
+        <option value="mcc">Machine à courant continu</option>
+        </optgroup><optgroup label="Électronique de puissance">
         <option value="buck">Hacheur série (buck)</option>
         <option value="boost">Hacheur parallèle (boost)</option>
         <option value="hbridge">Onduleur monophasé en pont</option>
@@ -119,6 +124,7 @@ input.num{width:84px;font-family:var(--mono);text-align:right}
         <option value="flyback">Alimentation flyback (transformateur)</option>
         <option value="scr1">Pont de Graetz à thyristors</option>
         <option value="scr3">Redresseur triphasé commandé</option>
+        </optgroup>
       </select></div>
     <div class="grp"><button class="btn" id="save" title="Enregistrer le circuit dans un fichier">Enregistrer</button><button class="btn" id="open" title="Ouvrir un fichier de circuit">Ouvrir…</button><input type="file" id="file" accept=".json,application/json" hidden></div>
     <div class="grp"><button class="btn" id="layout" title="Placer le schéma et les oscilloscopes côte à côte ou l’un sous l’autre">Côte à côte</button><button class="btn" id="addscope" title="Ajouter une fenêtre d’oscilloscope">+ Oscillo</button><label class="lbl" style="display:flex;align-items:center;gap:4px" title="Synchroniser la plage de temps de tous les oscilloscopes"><input type="checkbox" id="linkx" checked>Axes liés</label></div>
@@ -403,8 +409,27 @@ Builder.prototype.wire=function(x1,y1,x2,y2){if(x1===x2&&y1===y2)return;
   if(x1!==x2&&y1!==y2){this.wires.push({x1,y1,x2,y2:y1},{x1:x2,y1:y1,x2,y2})}else this.wires.push({x1,y1,x2,y2})};
 Builder.prototype.out=function(extra){
   const by=n=>this.comps.find(c=>c.name===n).id;
-  return{comps:this.comps,wires:this.wires,tstop:extra.tstop,probes:extra.probes.map(([n,k])=>({comp:by(n),kind:k})),title:extra.title}};
+  return{comps:this.comps,wires:this.wires,tstop:extra.tstop,probes:extra.probes.map(([n,k])=>({comp:by(n),kind:k})),title:extra.title,dt:extra.dt}};
 const PRESETS={
+ rl(){const b=new Builder();
+  b.add('Vdc',6,12,1,{V:12},'E');b.add('R',10,10,0,{R:10},'R');b.add('L',16,12,1,{L:100e-3},'L');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
+  return b.out({title:'Circuit RL (τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v']]})},
+ rc(){const b=new Builder();
+  b.add('Vdc',6,12,1,{V:10},'E');b.add('R',10,10,0,{R:1000},'R');b.add('C',16,12,1,{C:10e-6},'C');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
+  return b.out({title:'Circuit RC (τ = RC = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['C','v'],['C','i'],['R','v']]})},
+ mcc(){const b=new Builder();
+  /* Machine à courant continu, modèle électrique équivalent :
+     U = Ra·i + La·di/dt + E,  E = K·Ω,  J·dΩ/dt = K·i − f·Ω − Cr
+     → inertie : condensateur J/K² ; frottement visqueux : résistance K²/f ; couple résistant : source de courant Cr/K.
+     Valeurs typiques (24 V, ~100 W) : Ra = 0,5 Ω, La = 1 mH, K = 0,06 N·m/A, J = 1e-4 kg·m², f = 1e-5 N·m·s/rad, Cr = 0,2 N·m. */
+  const K=0.06,J=1e-4,f=1e-5,Cr=0.2;
+  b.add('Vdc',6,12,1,{V:24},'U');b.add('R',10,10,0,{R:0.5},'Ra');b.add('L',16,10,0,{L:1e-3},'La');
+  b.add('C',22,12,1,{C:J/(K*K)},'J/K²').ann={v:{dir:'ba',label:'E = K·Ω'}};
+  b.add('R',26,12,1,{R:K*K/f},'K²/f');b.add('Idc',30,12,1,{I:Cr/K},'Cr/K');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,8,10);b.wire(12,10,14,10);b.wire(18,10,30,10);b.wire(6,14,30,14);
+  return b.out({title:'Machine à courant continu (modèle équivalent)',tstop:100e-3,dt:10e-6,probes:[['La','i'],['J/K²','v']]})},
  buck(){const b=new Builder();
   b.add('Vdc',6,12,1,{V:48},'Vin');b.add('SW',12,10,0,{mode:'pwm',fsw:20000,duty:0.5},'S1');
   b.add('D',14,12,3,{},'D1');b.add('L',18,10,0,{L:200e-6},'L1');b.add('C',22,12,1,{C:100e-6},'C1');
@@ -1048,8 +1073,8 @@ function fit(){const{w,h}=sizeCanvas(cv);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const
   for(const c of circuit.comps)for(const p of pinsOf(c))add(p[0],p[1]);for(const wr of circuit.wires){add(wr.x1,wr.y1);add(wr.x2,wr.y2)}
   if(x0>x1){view={ox:30,oy:30,s:1};return}const s=Math.max(.35,Math.min(1.15,Math.min((w-60)/((x1-x0+3)*G),(h-60)/((y1-y0+4)*G))));
   view.s=s;view.ox=(w-(x1-x0)*G*s)/2-x0*G*s;view.oy=(h-(y1-y0)*G*s)/2-y0*G*s}
-function loadPreset(name){const p=PRESETS[name]();snap();circuit={comps:p.comps,wires:p.wires,arrows:[]};idc=Math.max(...p.comps.map(c=>c.id))+1;
-  probes=p.probes.map(q=>({id:pidc++,comp:q.comp,kind:q.kind,show:true}));restoreScopes([{sel:probes.map(q=>q.id)}]);sel=null;$('tstop').value=fmtSI(p.tstop);$('dtin').value='auto';res=null;setTool('select');fit();persist();renderInsp();renderProbes();draw();simulate()}
+function loadPreset(name){const p=PRESETS[name]();snap();circuit={comps:p.comps,wires:p.wires,arrows:[]};for(const c of circuit.comps)c.ann=cleanAnn(c.ann);idc=Math.max(...p.comps.map(c=>c.id))+1;
+  probes=p.probes.map(q=>({id:pidc++,comp:q.comp,kind:q.kind,show:true}));restoreScopes([{sel:probes.map(q=>q.id)}]);sel=null;$('tstop').value=fmtSI(p.tstop);$('dtin').value=p.dt?fmtSI(p.dt):'auto';res=null;setTool('select');fit();persist();renderInsp();renderProbes();draw();simulate()}
 $('preset').onchange=e=>{if(e.target.value)loadPreset(e.target.value);e.target.value=''};
 $('run').onclick=simulate;$('undo').onclick=undo;
 $('clear').onclick=()=>{snap();circuit={comps:[],wires:[],arrows:[]};probes=[];restoreScopes([{}]);sel=null;res=null;view={ox:40,oy:40,s:1};persist();renderInsp();renderProbes();draw();drawScope();renderMeas();setStatus('Nouveau circuit. Posez des composants depuis la palette.')};
@@ -1080,7 +1105,11 @@ $('gridtog').onclick=e=>{showGrid=!showGrid;e.currentTarget.classList.toggle('on
 $('layout').onclick=()=>{ui.layout=ui.layout==='side'?'stack':'side';applyUI();saveUI();requestAnimationFrame(()=>{fit();draw();drawScope()})};
 if(window.ResizeObserver){let rf=0;const ro=new ResizeObserver(()=>{cancelAnimationFrame(rf);rf=requestAnimationFrame(()=>{draw();drawScope()})});ro.observe($('schbox'))}
 applyUI();
-function boot(){buildPalette();setTool('select');let ok=false;const raw=store.get('commutation-v1');
+/* Lien direct vers un exemple : index.html?ex=rl (rl, rc, mcc, buck, …) */
+function urlPreset(){try{const u=new URL(location.href),ex=u.searchParams.get('ex');if(!ex)return null;
+  u.searchParams.delete('ex');history.replaceState(null,'',u.pathname+u.search+u.hash);
+  return Object.prototype.hasOwnProperty.call(PRESETS,ex)?ex:null}catch(e){return null}}
+function boot(){buildPalette();setTool('select');const ex=urlPreset();if(ex){loadPreset(ex);undoStack=[];return}let ok=false;const raw=store.get('commutation-v1');
   if(raw){try{const o=JSON.parse(raw);if(o.circuit&&o.circuit.comps.length){circuit=o.circuit;normalize();probes=o.probes||[];idc=o.idc||100;pidc=o.pidc||100;restoreScopes(Array.isArray(o.scopes)&&o.scopes.length?o.scopes:[{sel:probes.filter(p=>p.show!==false).map(p=>p.id)}]);$('tstop').value=o.tstop||'5m';$('dtin').value=o.dt||'auto';ok=true}}catch(e){}}
   if(!ok)restoreScopes([{}]);if(ok){fit();renderInsp();renderProbes();draw();simulate()}else loadPreset('buck');undoStack=[]}
 requestAnimationFrame(boot);
