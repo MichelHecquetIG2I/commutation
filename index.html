@@ -112,6 +112,7 @@ input.num{width:84px;font-family:var(--mono);text-align:right}
         <optgroup label="Circuits de base">
         <option value="rl">Circuit RL</option>
         <option value="rc">Circuit RC</option>
+        <option value="rle">Circuit R-L-E (fcém)</option>
         <option value="mcc">Machine à courant continu</option>
         </optgroup><optgroup label="Électronique de puissance">
         <option value="buck">Hacheur série (buck)</option>
@@ -419,6 +420,13 @@ const PRESETS={
   b.add('Vdc',6,12,1,{V:10},'E');b.add('R',10,10,0,{R:1000},'R');b.add('C',16,12,1,{C:10e-6},'C');b.add('gnd',6,14,0,{},'GND');
   b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
   return b.out({title:'Circuit RC (τ = RC = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['C','v'],['C','i'],['R','v']]})},
+ rle(){const b=new Builder();
+  /* Charge R-L-E : U = R·i + L·di/dt + E, avec E < U (fcém constante, ex. induit bloqué en vitesse).
+     i(t) = (U − E)/R · (1 − e^(−t/τ)), τ = L/R. Modifier E dans l'inspecteur (E > U : le courant devient négatif). */
+  b.add('Vdc',6,12,1,{V:24},'U');b.add('R',10,10,0,{R:2},'R');b.add('L',16,10,0,{L:20e-3},'L');
+  b.add('Vdc',22,12,1,{V:12},'E');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,8,10);b.wire(12,10,14,10);b.wire(18,10,22,10);b.wire(6,14,22,14);
+  return b.out({title:'Circuit R-L-E (U = 24 V, E = 12 V, τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v']]})},
  mcc(){const b=new Builder();
   /* Machine à courant continu, modèle électrique équivalent :
      U = Ra·i + La·di/dt + E,  E = K·Ω,  J·dΩ/dt = K·i − f·Ω − Cr

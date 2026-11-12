@@ -17,6 +17,7 @@ Une fois la page publiée (GitHub Pages : *Settings → Pages → Deploy from a 
 |---|---|
 | Circuit RL (E = 12 V, R = 10 Ω, L = 100 mH, τ = 10 ms) | `https://michelhecquetig2i.github.io/commutation/?ex=rl` |
 | Circuit RC (E = 10 V, R = 1 kΩ, C = 10 µF, τ = 10 ms) | `https://michelhecquetig2i.github.io/commutation/?ex=rc` |
+| Circuit R-L-E (U = 24 V, R = 2 Ω, L = 20 mH, E = 12 V, τ = 10 ms) | `https://michelhecquetig2i.github.io/commutation/?ex=rle` |
 | Machine à courant continu (modèle équivalent) | `https://michelhecquetig2i.github.io/commutation/?ex=mcc` |
 
 Les exemples d’électronique de puissance sont aussi accessibles : `buck`, `boost`, `buckpi`, `flyback`, `hbridge`, `spwmblk`, `inv3`, `rect3`, `scr1`, `scr3`.
