@@ -102,6 +102,15 @@ input.num{width:84px;font-family:var(--mono);text-align:right}
   .status{margin-left:0;flex-basis:100%;text-align:left}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.tuto-dlg{border:0;border-radius:12px;padding:0;width:min(980px,96vw);max-height:94vh;background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.tuto-dlg::backdrop{background:rgba(15,23,42,.55)}
+.tuto-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tuto-head h2{font-size:16px;margin:0 auto 0 0;font-weight:600}
+.tuto-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tuto-tabs .btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tuto-body{padding:12px 14px 14px}
+.tuto-body video{width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;display:block}
+.tuto-body p{margin:8px 0 0;color:var(--muted);font-size:13px}
 </style>
 <div class="app">
   <header class="top">
@@ -130,6 +139,7 @@ input.num{width:84px;font-family:var(--mono);text-align:right}
     <div class="grp"><button class="btn" id="save" title="Enregistrer le circuit dans un fichier">Enregistrer</button><button class="btn" id="open" title="Ouvrir un fichier de circuit">Ouvrir…</button><input type="file" id="file" accept=".json,application/json" hidden></div>
     <div class="grp"><button class="btn" id="layout" title="Placer le schéma et les oscilloscopes côte à côte ou l’un sous l’autre">Côte à côte</button><button class="btn" id="addscope" title="Ajouter une fenêtre d’oscilloscope">+ Oscillo</button><label class="lbl" style="display:flex;align-items:center;gap:4px" title="Synchroniser la plage de temps de tous les oscilloscopes"><input type="checkbox" id="linkx" checked>Axes liés</label></div>
     <div class="grp"><button class="btn on" id="gridtog" title="Afficher/masquer la grille" aria-pressed="true">Grille</button><label class="lbl" style="display:flex;align-items:center;gap:4px" title="Afficher les valeurs des composants sur le schéma"><input type="checkbox" id="valtog" checked>Valeurs</label></div>
+    <div class="grp"><button class="btn" id="tutobtn" title="Vidéos : construire un schéma, visualiser les courbes, faire des calculs">▶ Tutoriel</button></div>
     <div class="grp"><button class="btn" id="undo" title="Annuler (Ctrl+Z)">Annuler</button><button class="btn" id="clear">Nouveau</button></div>
     <div class="grp"><span class="lbl">Durée</span><input class="num" id="tstop" type="text" value="5m" aria-label="Durée de simulation en secondes"><span class="lbl">s</span>
       <span class="lbl">Pas</span><input class="num" id="dtin" type="text" value="auto" aria-label="Pas de calcul en secondes"><span class="lbl">s</span></div>
@@ -431,7 +441,7 @@ const PRESETS={
   b.wire(6,10,8,10);b.wire(12,10,14,10);b.wire(18,10,22,10);b.wire(6,14,22,14);
   /* Puissance et énergie dissipées dans R : p = vR·iR = R·i², W(t) = ∫p dt (2e oscilloscope). */
   return b.out({title:'Circuit R-L-E (U = 24 V, E = 12 V, τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v'],['R','i',false]],
-    math:[{op:'mul',a:2,b:3},{op:'int',a:4}],scopes:[[0,1,2],[4,5]]})},
+    math:[{op:'mul',a:2,b:3,name:'Pr : puissance dissipée dans la résistance'},{op:'int',a:4,name:'Wr : énergie dissipée dans la résistance'}],scopes:[[0,1,2],[4,5]]})},
  mcc(){const b=new Builder();
   /* Machine à courant continu, modèle électrique équivalent :
      U = Ra·i + La·di/dt + E,  E = K·Ω,  J·dΩ/dt = K·i − f·Ω − Cr
@@ -693,6 +703,7 @@ function draw(){
   /* composants */
   const sprobed=new Set(probes.filter(p=>p.kind!=='m').map(p=>p.comp));
   for(const c of circuit.comps){const s=sel&&sel.kind==='c'&&sel.id===c.id;drawComp(c,s?sc:ink,s,sprobed.has(c.id))}
+  drawPinTags();
   circuit.arrows.forEach((a,i)=>{const s=sel&&sel.kind==='a'&&sel.i===i;drawArrow(...toS(a.x1,a.y1),...toS(a.x2,a.y2),s?sc:acc,a.label,.35*u,s?3:2,false,false)});
   /* points de connexion */
   for(const [k,n] of cnt){const[x,y]=k.split(',').map(Number),[px,py]=toS(x,y);
@@ -716,6 +727,19 @@ function drawArrow(x1,y1,x2,y2,col,label,off,lw,dash,upright){
     const o=off+(vert?4:8);cx.fillText(label,(x1+x2)/2+nx*o,(y1+y2)/2+ny*o)}
   cx.restore()}
 const DIPOLES=new Set(['R','L','C','Vdc','Vac','Idc','Iac','D','SW','SCR']);
+/* Repères a / b : bornes utilisées par les sondes de tension (couleur = couleur de la courbe) */
+function drawPinTags(){const u=G*view.s,tags=new Map();
+  probes.forEach((p,i)=>{if(p.kind!=='v'&&p.kind!=='va'&&p.kind!=='vb')return;const c=circuit.comps.find(c=>c.id===p.comp);if(!c||!DIPOLES.has(c.type))return;
+    if(!tags.has(c.id))tags.set(c.id,{c,a:null,b:null});const t=tags.get(c.id),col=css('--t'+(i%8+1));
+    if(p.kind!=='vb'&&!t.a)t.a=col;if(p.kind!=='va'&&!t.b)t.b=col});
+  cx.save();cx.font='italic 700 '+Math.max(10,13*view.s)+'px '+css('--ui');cx.textAlign='center';cx.textBaseline='middle';
+  for(const {c,a,b} of tags.values()){const pins=pinsOf(c);if(pins.length<2)continue;const vert=(((c.rot%2)+2)%2)===1;
+    [[pins[0],a,'a'],[pins[1],b,'b']].forEach(([q,col,txt])=>{if(!col)return;
+      const dx=Math.sign(q[0]-c.x),dy=Math.sign(q[1]-c.y),[px,py]=toS(q[0],q[1]);
+      const x=px+(vert?-.55*u:-dx*.45*u),y=py+(vert?-dy*.45*u:-.55*u),r=Math.max(7,8.5*view.s);
+      cx.fillStyle=css('--canvas');cx.strokeStyle=col;cx.lineWidth=1.5;cx.beginPath();cx.arc(x,y,r,0,7);cx.fill();cx.stroke();
+      cx.fillStyle=col;cx.fillText(txt,x,y+.5)})}
+  cx.restore()}
 function drawAnn(c){if(!c.ann||!DIPOLES.has(c.type))return;const u=G*view.s,r=((c.rot%4)+4)%4,sy=(r===0||r===3)?-1:1;
   const P=(lx,ly)=>{let x=lx,y=ly;for(let i=0;i<r;i++){const t=x;x=-y;y=t}return toS(c.x+x,c.y+y)};
   const one=(q,col,ya,x0,x1)=>{if(!q)return;const f=q.dir==='ab';drawArrow(...P(f?x0:x1,sy*ya),...P(f?x1:x0,sy*ya),col,q.label,.3*u,2,false,true)};
@@ -1130,6 +1154,25 @@ function boot(){buildPalette();setTool('select');const ex=urlPreset();if(ex){loa
 requestAnimationFrame(boot);
 </script>
 
+<dialog class="tuto-dlg" id="tuto" data-tuto-base="tutoriel/" aria-label="Tutoriel vidéo">
+  <div class="tuto-head"><h2>Tutoriel</h2>
+    <div class="tuto-tabs" id="tuto-tabs"></div>
+    <button class="btn sm" id="tuto-close" aria-label="Fermer le tutoriel">✕</button></div>
+  <div class="tuto-body"><video id="tuto-video" controls playsinline preload="none"></video><p id="tuto-desc"></p></div>
+</dialog>
+<script>
+(()=>{const dlg=document.getElementById('tuto'),base=dlg.dataset.tutoBase,vid=document.getElementById('tuto-video'),tabs=document.getElementById('tuto-tabs'),desc=document.getElementById('tuto-desc');
+  const V=[['01-construire-un-schema','1 · Construire un schéma','Placer les composants, les pivoter, les relier par des fils, régler les valeurs, ajouter des sondes et simuler.'],
+    ['02-visualiser-les-courbes','2 · Visualiser les courbes','Repères a / b, choix des courbes, zoom, régime établi, plusieurs oscilloscopes, disposition côte à côte.'],
+    ['03-mesures-et-calculs','3 · Mesures et calculs','Moyenne et valeur efficace, puissance, courbes calculées (produit, intégrale…), énergie, enregistrement.']];
+  let cur=-1;const btns=V.map((v,i)=>{const b=document.createElement('button');b.className='btn sm';b.textContent=v[1];b.onclick=()=>show(i,true);tabs.appendChild(b);return b});
+  function show(i,play){if(i!==cur){cur=i;vid.src=base+V[i][0]+'.mp4';vid.poster=base+V[i][0]+'.jpg';desc.textContent=V[i][2];btns.forEach((b,k)=>b.classList.toggle('on',k===i))}if(play)vid.play().catch(()=>{})}
+  document.getElementById('tutobtn').onclick=()=>{if(cur<0)show(0,false);if(dlg.showModal)dlg.showModal();else dlg.setAttribute('open','')};
+  const close=()=>{vid.pause();dlg.close?dlg.close():dlg.removeAttribute('open')};
+  document.getElementById('tuto-close').onclick=close;dlg.addEventListener('close',()=>vid.pause());
+  dlg.addEventListener('click',e=>{if(e.target===dlg)close()});
+  if(new URL(location.href).searchParams.get('tuto')!==null){const n=+new URL(location.href).searchParams.get('tuto');show(n>=1&&n<=V.length?n-1:0,false);dlg.showModal&&dlg.showModal()}})();
+</script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
