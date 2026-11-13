@@ -1,0 +1,184 @@
+{
+ "format": "commutation",
+ "version": 1,
+ "circuit": {
+  "comps": [
+   {
+    "id": 1,
+    "type": "Vdc",
+    "x": 6,
+    "y": 12,
+    "rot": 1,
+    "p": {
+     "V": 0.3
+    },
+    "name": "F",
+    "ann": {}
+   },
+   {
+    "id": 2,
+    "type": "R",
+    "x": 10,
+    "y": 10,
+    "rot": 0,
+    "p": {
+     "R": 1
+    },
+    "name": "b",
+    "ann": {}
+   },
+   {
+    "id": 3,
+    "type": "L",
+    "x": 16,
+    "y": 12,
+    "rot": 1,
+    "p": {
+     "L": 0.5,
+     "i0": 0
+    },
+    "name": "m",
+    "ann": {}
+   },
+   {
+    "id": 4,
+    "type": "gnd",
+    "x": 6,
+    "y": 14,
+    "rot": 0,
+    "p": {},
+    "name": "GND",
+    "ann": {}
+   }
+  ],
+  "wires": [
+   {
+    "x1": 6,
+    "y1": 10,
+    "x2": 8,
+    "y2": 10
+   },
+   {
+    "x1": 12,
+    "y1": 10,
+    "x2": 16,
+    "y2": 10
+   },
+   {
+    "x1": 6,
+    "y1": 14,
+    "x2": 16,
+    "y2": 14
+   }
+  ],
+  "arrows": []
+ },
+ "probes": [
+  {
+   "comp": 3,
+   "kind": "i",
+   "show": false
+  },
+  {
+   "comp": 2,
+   "kind": "v",
+   "show": false
+  },
+  {
+   "comp": 3,
+   "kind": "v",
+   "show": false
+  },
+  {
+   "comp": 1,
+   "kind": "v",
+   "show": false
+  },
+  {
+   "kind": "m",
+   "op": "gain",
+   "a": 0,
+   "b": -1,
+   "par": 1,
+   "show": true,
+   "name": "v : vitesse du robot",
+   "unit": "m/s"
+  },
+  {
+   "kind": "m",
+   "op": "gain",
+   "a": 3,
+   "b": -1,
+   "par": 1,
+   "show": false,
+   "name": "F : force de traction",
+   "unit": "N"
+  },
+  {
+   "kind": "m",
+   "op": "gain",
+   "a": 1,
+   "b": -1,
+   "par": 1,
+   "show": false,
+   "name": "Ffrot = b·v : force de frottement",
+   "unit": "N"
+  },
+  {
+   "kind": "m",
+   "op": "gain",
+   "a": 2,
+   "b": -1,
+   "par": 1,
+   "show": false,
+   "name": "m·a = F − b·v : force résultante",
+   "unit": "N"
+  },
+  {
+   "kind": "m",
+   "op": "int",
+   "a": 4,
+   "b": -1,
+   "par": 0,
+   "show": false,
+   "name": "x : distance parcourue",
+   "unit": "m"
+  }
+ ],
+ "scopes": [
+  {
+   "sel": [
+    4
+   ],
+   "spec": false,
+   "lanes": true,
+   "fmax": "auto",
+   "win": "none",
+   "db": false
+  },
+  {
+   "sel": [
+    5,
+    6,
+    7
+   ],
+   "spec": false,
+   "lanes": true,
+   "fmax": "auto",
+   "win": "none",
+   "db": false
+  },
+  {
+   "sel": [
+    8
+   ],
+   "spec": false,
+   "lanes": true,
+   "fmax": "auto",
+   "win": "none",
+   "db": false
+  }
+ ],
+ "tstop": "2",
+ "dt": "1m"
+}

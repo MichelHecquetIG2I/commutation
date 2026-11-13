@@ -17,8 +17,8 @@ import shutil
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DST = ROOT / "SimCircuit"
-EXEMPLES = ["rl", "rc", "rle", "mcc"]
-FICHIERS_EXEMPLES = ["circuit-RL.json", "circuit-RC.json", "circuit-RLE.json", "machine-courant-continu.json"]
+EXEMPLES = ["rl", "rc", "rle", "robot", "mcc"]
+FICHIERS_EXEMPLES = ["circuit-RL.json", "circuit-RC.json", "circuit-RLE.json", "robot-demarrage.json", "machine-courant-continu.json"]
 ICONES = ["apple-touch-icon.png", "favicon-32.png", "favicon.ico", "icon-192.png", "icon-512.png"]
 
 
@@ -89,6 +89,7 @@ def main():
         f"| Circuit RL | {base}?ex=rl |",
         f"| Circuit RC | {base}?ex=rc |",
         f"| Circuit R-L-E (fcém) | {base}?ex=rle |",
+        f"| Démarrage d’un robot (analogie RL) | {base}?ex=robot |",
         f"| Machine à courant continu | {base}?ex=mcc |",
         "",
     ]
