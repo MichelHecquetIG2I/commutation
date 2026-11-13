@@ -22,6 +22,27 @@ Une fois la page publiée (GitHub Pages : *Settings → Pages → Deploy from a 
 
 Sur le schéma, les repères **a** et **b** indiquent les bornes de chaque sonde de tension (u = Va − Vb), dans la couleur de la courbe correspondante.
 
+## Amplificateur opérationnel (AOP)
+
+Composant **AOP** de la palette (Commutation uniquement, absent de SimCircuit) : entrées + et −, sortie, alimentations ±Vcc réglables.
+Modèle : gain en boucle ouverte A0 avec pôle dominant (produit gain-bande GBW), vitesse de balayage SR, saturation près des
+alimentations, résistances d’entrée Rin et de sortie Rout. Valeurs typiques des fiches techniques :
+
+| Modèle | A0 | GBW | SR | Rin | Saturation (±15 V) |
+|---|---|---|---|---|---|
+| µA741 | 2·10⁵ | 1 MHz | 0,5 V/µs | 2 MΩ | ±14 V |
+| TL081 | 2·10⁵ | 3 MHz | 13 V/µs | 10¹² Ω | ±13,5 V |
+| LM358 | 10⁵ | 0,7 MHz | 0,3 V/µs | — | +13,5 V / −15 V |
+| Idéal | 10⁶ | — | — | ∞ | ±15 V |
+
+Rout = 75 Ω pour le 741 ; 100 Ω (valeur indicative, non spécifiée par les fiches) pour le TL081 et le LM358. Le modèle
+« Personnalisé » permet de saisir toutes les valeurs. Sondes : tension de sortie, courant de sortie, tension d’entrée
+ε = V+ − V−, potentiels des entrées.
+
+Exemple : amplificateur inverseur G = −10 (`?ex=aop741`) —
+`https://michelhecquetig2i.github.io/commutation/?ex=aop741`. Pistes : Ve = 2 V (saturation), f = 20 kHz (vitesse de
+balayage : sortie triangulaire), modèle TL081 ou Idéal pour comparer.
+
 ## Tutoriel vidéo
 
 Le bouton **▶ Tutoriel** de l’en-tête ouvre trois courtes vidéos (fichiers dans `tutoriel/`) :
