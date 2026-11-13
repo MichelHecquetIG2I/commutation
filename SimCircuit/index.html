@@ -162,9 +162,18 @@ const DEFAULTS={
   SCR:{mode:'angle',Vf:1,Ron:0.01,alpha:30,ph:0,fref:50,width:60},
   SIN:{amp:1,f:50,ph:0,off:0}, CST:{value:0.5}, TRI:{f:20000,min:0,max:1}, CMP:{high:1,low:0,hyst:0},
   SUM:{s1:1,s2:-1}, GAIN:{K:1}, PI:{Kp:0.01,Ki:20,min:0,max:1,i0:0}, SV:{K:1}, SI:{K:1,Rs:1e-3},
-  SW:{mode:'pwm',fsw:20000,duty:0.5,m:0.8,fref:50,ph:0,inv:0,body:1,Ron:0.01,Vf:0.7}
+  SW:{mode:'pwm',fsw:20000,duty:0.5,m:0.8,fref:50,ph:0,inv:0,body:1,Ron:0.01,Vf:0.7},
+  AOP:{mode:'741',Vcc:15,Vee:-15,swap:0,A0:2e5,GBW:1e6,SR:0.5,Rin:2e6,Rout:75,dH:1,dL:1}
 };
-const PREFIX={R:'R',L:'L',C:'C',Vdc:'V',Vac:'E',D:'D',SW:'S',SCR:'T',Idc:'I',Iac:'Ia',XF:'TR',SIN:'Ref',CST:'Cst',TRI:'Tri',CMP:'Cmp',SUM:'Sum',GAIN:'Gn',PI:'PI',SV:'Cv',SI:'Ci',gnd:'GND'};
+/* AOP : valeurs typiques des fiches techniques (A0 gain statique, GBW produit gain-bande en Hz, SR vitesse de balayage en V/µs,
+   Rin / Rout en Ω (Rin = 0 : infinie), dH / dL : écart entre saturation et alimentation, en V). GBW = 0 : pas de pôle ; SR = 0 : pas de limite. */
+const AOP_MODELS={
+  ideal:{A0:1e6,GBW:0,SR:0,Rin:0,Rout:0,dH:0,dL:0},
+  '741':{A0:2e5,GBW:1e6,SR:0.5,Rin:2e6,Rout:75,dH:1,dL:1},
+  TL081:{A0:2e5,GBW:3e6,SR:13,Rin:1e12,Rout:100,dH:1.5,dL:1.5},
+  LM358:{A0:1e5,GBW:0.7e6,SR:0.3,Rin:0,Rout:100,dH:1.5,dL:0.02}};
+const aopModel=p=>p.mode==='perso'?p:(AOP_MODELS[p.mode]||AOP_MODELS['741']);
+const PREFIX={R:'R',L:'L',C:'C',Vdc:'V',Vac:'E',D:'D',SW:'S',SCR:'T',Idc:'I',Iac:'Ia',XF:'TR',SIN:'Ref',CST:'Cst',TRI:'Tri',CMP:'Cmp',SUM:'Sum',GAIN:'Gn',PI:'PI',SV:'Cv',SI:'Ci',AOP:'AOP',gnd:'GND'};
 function nextName(comps,type){const px=PREFIX[type];let n=1;const used=new Set(comps.map(c=>c.name));while(used.has(px+n))n++;return type==='gnd'?'GND':px+n}
 function pinDefs(c){const t=c.type,p=Object.assign({},DEFAULTS[t],c.p);
   if(t==='gnd')return[{x:0,y:0,r:'gnd'}];
@@ -173,6 +182,7 @@ function pinDefs(c){const t=c.type,p=Object.assign({},DEFAULTS[t],c.p);
     case'CMP':case'SUM':return[{x:-2,y:-1,r:'i1'},{x:-2,y:1,r:'i2'},{x:2,y:0,r:'o'}];
     case'GAIN':case'PI':return[{x:-2,y:0,r:'i1'},{x:2,y:0,r:'o'}]}
   if(t==='XF')return[{x:-2,y:-1,r:'a'},{x:-2,y:1,r:'b'},{x:2,y:-1,r:'c'},{x:2,y:1,r:'d'}];
+  if(t==='AOP')return[{x:-2,y:p.swap?-1:1,r:'a'},{x:-2,y:p.swap?1:-1,r:'b'},{x:2,y:0,r:'c'}];/* a = entrée +, b = entrée −, c = sortie */
   const d=[{x:-2,y:0,r:'a'},{x:2,y:0,r:'b'}];
   if(t==='SW'&&p.mode==='ext')d.push({x:0,y:-2,r:'g'});
   if(t==='SCR'&&p.mode==='ext')d.push({x:1,y:1,r:'g'});
@@ -218,10 +228,14 @@ function compile(circuit){
       if(c.type==='TRI'&&!(e.p.f>0))return{error:c.name+' : la fréquence doit être positive.'};
       e.in=[];if(by.i1!==undefined)e.in.push(sigOf(by.i1));if(by.i2!==undefined)e.in.push(sigOf(by.i2));e.out=sigOf(by.o);blocks.push(e);continue}
     e.a=nodeOf(by.a);e.b=nodeOf(by.b);
-    if(by.c!==undefined){e.c=nodeOf(by.c);e.d=nodeOf(by.d)}
+    if(by.c!==undefined){e.c=nodeOf(by.c);if(by.d!==undefined)e.d=nodeOf(by.d)}
     if(by.g!==undefined)e.gnet=sigOf(by.g);if(by.o!==undefined)e.out=sigOf(by.o);
     if((c.type==='Vdc'||c.type==='Vac')){
       if(e.a===e.b)return{error:'La source '+c.name+' est en court-circuit.'};
+      e.k=nv++}
+    if(c.type==='AOP'){if(e.c===0)return{error:c.name+' : la sortie de l’AOP ne peut pas être reliée directement à la masse.'};
+      const m=aopModel(e.p);if(!(m.A0>0))return{error:c.name+' : le gain en boucle ouverte doit être positif.'};
+      if(!(e.p.Vcc-m.dH>e.p.Vee+m.dL))return{error:c.name+' : les alimentations (+Vcc / −Vee) sont incohérentes.'};
       e.k=nv++}
     if(c.type==='R'&&!(e.p.R>0))return{error:c.name+' : la résistance doit être positive.'};
     if(c.type==='XF'&&!(e.p.Lp>0&&e.p.n>0))return{error:c.name+' : l’inductance primaire et le rapport doivent être positifs.'};
@@ -263,6 +277,7 @@ function Sim(net,dt){
   this.sig=new Float64Array(net.nSig||0);
   for(const e of net.elems){e.iab=0;e.v=0;e.gate=false;e.on=false;e.dOn=false;e.o=0;
     if(e.type==='L')e.i=e.p.i0||0;if(e.type==='C')e.vc=e.p.v0||0;
+    if(e.type==='AOP'){const m=aopModel(e.p);e.m={A0:m.A0,GBW:Math.max(0,m.GBW||0),SR:Math.max(0,m.SR||0)*1e6,Rin:Math.max(0,m.Rin||0),Rout:Math.max(0,m.Rout||0),Vh:e.p.Vcc-m.dH,Vl:e.p.Vee+m.dL};e.x=0;e.sat=0;e.vs=0}
     if(e.type==='XF'){const p=e.p,L1=p.Lp,L2=p.Lp/(p.n*p.n),kk=Math.min(Math.max(p.k,0),0.9999),M=(p.inv?-1:1)*kk*Math.sqrt(L1*L2),D=L1*L2-M*M;e.g11=dt*L2/D;e.g12=-dt*M/D;e.g22=dt*L1/D;e.i1=0;e.i2=0;e.v2=0}}
   for(const b of net.blocks){b.o=0;b.state=0;if(b.type==='PI')b.I=b.p.i0||0}}
 Sim.prototype.signals=function(t){
@@ -288,6 +303,9 @@ Sim.prototype.step=function(t){
   for(const e of els){const p=e.p;
     if(e.type==='SW')e.gate=p.mode==='ext'?((this.sig[e.gnet]>0.5)!==!!p.inv):this.gateAt(e,t);
     else if(e.type==='SCR'){if(p.mode==='ext')e.gate=this.sig[e.gnet]>0.5;else{const x=((t*p.fref-(p.ph+p.alpha)/360)%1+1)%1;e.gate=x*360<p.width}}}
+  for(const e of els)if(e.type==='AOP'){const m=e.m;/* pôle dominant, Euler implicite : x = al·(V+ − V−) + be */
+    if(m.GBW>0){const k=dt*2*Math.PI*m.GBW/m.A0;e.al=m.A0*k/(1+k);e.be=e.x/(1+k)}else{e.al=m.A0;e.be=0}
+    e.U=m.Vh;e.L=m.Vl;if(m.SR>0){e.U=Math.min(e.U,e.x+m.SR*dt);e.L=Math.max(e.L,e.x-m.SR*dt)}if(e.L>e.U)e.L=e.U=Math.min(Math.max(e.x,m.Vl),m.Vh)}
   const G=(a,bn,g)=>{if(a>0){A[(a-1)*n+a-1]+=g;if(bn>0)A[(a-1)*n+bn-1]-=g}if(bn>0){A[(bn-1)*n+bn-1]+=g;if(a>0)A[(bn-1)*n+a-1]-=g}};
   const I=(a,bn,i)=>{if(a>0)b[a-1]-=i;if(bn>0)b[bn-1]+=i};
   for(let it=0;it<40;it++){
@@ -308,6 +326,9 @@ Sim.prototype.step=function(t){
             I(pj,mj,ip[j])}
           break}
         case'SI':G(a,bn,1/Math.max(p.Rs,1e-6));break;
+        case'AOP':{const m=e.m,r=nn+e.k,c=e.c;if(m.Rin>0)G(a,bn,1/m.Rin);
+          A[(c-1)*n+r]+=1;A[r*n+c-1]+=1;A[r*n+r]-=m.Rout;/* Vs − Rout·I = x (I : courant entrant dans la sortie) */
+          if(e.sat===0){if(a>0)A[r*n+a-1]-=e.al;if(bn>0)A[r*n+bn-1]+=e.al;b[r]=e.be}else b[r]=e.sat>0?e.U:e.L;break}
         case'Idc':I(a,bn,p.I);break;
         case'Iac':I(a,bn,p.off+p.amp*Math.sin(2*Math.PI*p.f*t+p.ph*Math.PI/180));break;
         case'Vdc':case'Vac':{
@@ -318,6 +339,9 @@ Sim.prototype.step=function(t){
     for(const e of els){const va=e.a>0?b[e.a-1]:0,vb=e.b>0?b[e.b-1]:0,v=va-vb,p=e.p;e.v=v;
       if(e.type==='D'||e.type==='SCR'){const g=1/Math.max(p.Ron,1e-6);
         if(e.on){if(g*(v-p.Vf)<0){e.on=false;ch=true}}else if(v>p.Vf&&(e.type==='D'||e.gate)){e.on=true;ch=true}}
+      else if(e.type==='AOP'){const xu=e.al*v+e.be;
+        if(e.sat===0){if(xu>e.U){e.sat=1;ch=true}else if(xu<e.L){e.sat=-1;ch=true}}
+        else if(e.sat>0){if(xu<e.U){e.sat=0;ch=true}}else if(xu>e.L){e.sat=0;ch=true}}
       else if(e.type==='SW'&&p.body){const g=1/Math.max(p.Ron,1e-6);
         if(e.dOn){if(-g*(v+p.Vf)<0){e.dOn=false;ch=true}}else if(-v>p.Vf){e.dOn=true;ch=true}}}
     if(!ch)break}
@@ -331,6 +355,7 @@ Sim.prototype.step=function(t){
       case'Idc':e.iab=p.I;break;
       case'Iac':e.iab=p.off+p.amp*Math.sin(2*Math.PI*p.f*t+p.ph*Math.PI/180);break;
       case'XF':{const vc=e.c>0?b[e.c-1]:0,vd=e.d>0?b[e.d-1]:0,v2=vc-vd,i1=e.i1+e.g11*v+e.g12*v2,i2=e.i2+e.g12*v+e.g22*v2;e.v2=v2;e.i1=i1;e.i2=i2;e.iab=i1;break}
+      case'AOP':{const I=b[nn+e.k],vs=e.c>0?b[e.c-1]:0;e.vs=vs;e.iab=-I;e.x=e.sat===0?e.al*v+e.be:(e.sat>0?e.U:e.L);break}
       case'SV':e.iab=0;e.o=p.K*v;break;
       case'SI':e.iab=v/Math.max(p.Rs,1e-6);e.o=p.K*e.iab;break;
       case'Vdc':case'Vac':e.iab=-b[nn+e.k]}}
@@ -348,7 +373,7 @@ Runner.prototype.run=function(ms){
       const t=(this.k+1)*this.dt;
       if(!this.sim.step(t)){this.err='Matrice singulière : vérifiez que chaque partie du circuit est reliée à la masse.';return true}
       for(let j=0;j<this.pr.length;j++){const pr=this.pr[j],e=pr.e;
-        this.data[j][this.k]=!e?0:pr.kind==='v'?e.v:pr.kind==='va'?e.va:pr.kind==='vb'?e.vb:pr.kind==='g'?(e.gate?1:0):pr.kind==='o'?e.o:pr.kind==='v2'?e.v2:pr.kind==='i2'?-e.i2:e.iab}
+        this.data[j][this.k]=!e?0:pr.kind==='v'?e.v:pr.kind==='va'?e.va:pr.kind==='vb'?e.vb:pr.kind==='g'?(e.gate?1:0):pr.kind==='o'?e.o:pr.kind==='v2'?e.v2:pr.kind==='i2'?-e.i2:pr.kind==='vs'?e.vs:e.iab}
       this.k++}
     if(performance.now()-t0>ms)break}
   return this.k>=this.N};
@@ -431,6 +456,14 @@ const PRESETS={
   /* Puissance et énergie dissipées dans R : p = vR·iR = R·i², W(t) = ∫p dt (2e oscilloscope). */
   return b.out({title:'Circuit R-L-E (U = 24 V, E = 12 V, τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v'],['R','i',false]],
     math:[{op:'mul',a:2,b:3,name:'Pr : puissance dissipée dans la résistance'},{op:'int',a:4,name:'Wr : énergie dissipée dans la résistance'}],scopes:[[0,1,2],[4,5]]})},
+ aop741(){const b=new Builder();
+  /* Amplificateur inverseur : G = −R2/R1 = −10. Ve = 1 V crête, 1 kHz → Vs ≈ −10 V crête.
+     Essais : Ve = 2 V → saturation vers ±14 V ; f = 20 kHz → limitation par la vitesse de balayage (0,5 V/µs) ; modèle « Idéal » pour comparer. */
+  b.add('Vac',4,10,1,{amp:1,f:1000,ph:0,off:0},'Ve');b.add('R',8,8,0,{R:1e3},'R1');b.add('R',15,5,0,{R:10e3},'R2');
+  b.add('AOP',16,10,0,{mode:'741',Vcc:15,Vee:-15,swap:0},'AOP');b.add('R',22,12,1,{R:10e3},'RL');b.add('gnd',4,14,0,{},'GND');
+  b.wire(4,8,6,8);b.wire(10,8,12,8);b.wire(12,8,12,9);b.wire(12,9,14,9);b.wire(12,8,12,5);b.wire(12,5,13,5);
+  b.wire(17,5,18,5);b.wire(18,5,18,10);b.wire(18,10,22,10);b.wire(4,12,4,14);b.wire(4,14,22,14);b.wire(14,11,14,14);
+  return b.out({title:'Amplificateur inverseur à AOP 741 (G = −R2/R1 = −10)',tstop:3e-3,dt:1e-6,probes:[['Ve','v'],['AOP','vs'],['AOP','v']],scopes:[[0,1],[2]]})},
  mcc(){const b=new Builder();
   /* Machine à courant continu, modèle électrique équivalent :
      U = Ra·i + La·di/dt + E,  E = K·Ω,  J·dΩ/dt = K·i − f·Ω − Cr
@@ -566,6 +599,10 @@ const SCHEMA={
  CMP:[{k:'high',l:'Sortie haute'},{k:'low',l:'Sortie basse'},{k:'hyst',l:'Hystérésis'}],
  SUM:[{k:'s1',l:'Signe entrée 1 (±1)'},{k:'s2',l:'Signe entrée 2 (±1)'}],
  GAIN:[{k:'K',l:'Gain'}],
+ AOP:[{k:'mode',l:'Modèle',t:'sel',o:[['741','µA741 (bipolaire)'],['TL081','TL081 (JFET, rapide)'],['LM358','LM358 (sortie jusqu’à −Vee)'],['ideal','Idéal'],['perso','Personnalisé']]},
+  {k:'Vcc',l:'Alimentation +Vcc',u:'V'},{k:'Vee',l:'Alimentation −Vee',u:'V'},{k:'swap',l:'Entrée + en haut',t:'chk'},
+  {k:'A0',l:'Gain en boucle ouverte A0',m:'perso'},{k:'GBW',l:'Produit gain-bande (0 = sans pôle)',u:'Hz',m:'perso'},{k:'SR',l:'Vitesse de balayage (0 = illimitée)',u:'V/µs',m:'perso'},
+  {k:'Rin',l:'Résistance d’entrée (0 = infinie)',u:'Ω',m:'perso'},{k:'Rout',l:'Résistance de sortie',u:'Ω',m:'perso'},{k:'dH',l:'Écart saturation haute / +Vcc',u:'V',m:'perso'},{k:'dL',l:'Écart saturation basse / −Vee',u:'V',m:'perso'}],
  PI:[{k:'Kp',l:'Gain proportionnel Kp'},{k:'Ki',l:'Gain intégral Ki (1/s)'},{k:'min',l:'Sortie minimale'},{k:'max',l:'Sortie maximale'},{k:'i0',l:'Sortie initiale'}],
  SV:[{k:'K',l:'Gain'}],
  SI:[{k:'K',l:'Gain'},{k:'Rs',l:'Résistance série',u:'Ω'}],
@@ -575,7 +612,7 @@ const SCHEMA={
  SW:[{k:'mode',l:'Commande',t:'sel',o:[['pwm','Rapport fixe'],['spwm','MLI sinus'],['ext','Signal externe (port G)']]},{k:'fsw',l:'Fréq. de découpage',u:'Hz',m:['pwm','spwm']},
   {k:'duty',l:'Rapport cyclique',m:'pwm'},{k:'m',l:'Indice de modulation',m:'spwm'},{k:'fref',l:'Fréq. de référence',u:'Hz',m:'spwm'},{k:'ph',l:'Phase référence',u:'°',m:'spwm'},
   {k:'inv',l:'Commande complémentaire',t:'chk'},{k:'body',l:'Diode antiparallèle',t:'chk'},{k:'Ron',l:'Résistance passante',u:'Ω'},{k:'Vf',l:'Seuil de la diode',u:'V'}]};
-const KIND={v2:['tension secondaire','V'],i2:['courant secondaire','A'],o:['signal',''],v:['tension a−b','V'],va:['potentiel a','V'],vb:['potentiel b','V'],i:['courant','A'],g:['commande',''],m:['calcul','']};
+const KIND={vs:['tension de sortie','V'],v2:['tension secondaire','V'],i2:['courant secondaire','A'],o:['signal',''],v:['tension a−b','V'],va:['potentiel a','V'],vb:['potentiel b','V'],i:['courant','A'],g:['commande',''],m:['calcul','']};
 let circuit={comps:[],wires:[],arrows:[]},probes=[],sel=null,tool='select',ghostRot=0,view={ox:30,oy:30,s:1},idc=1,pidc=1;
 let showVals=true,arrowStart=null,wireStart=null,wireFlip=false,mouse={x:0,y:0,in:false},drag=null,res=null,runTok=0,undoStack=[],meas=null;const scopes=[];let active=null;
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -611,6 +648,9 @@ function drawSymbol(ctx,type,p,col,body){
      L(2,-1,1.2,-1);L(1.2,1,2,1);for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(1.2,-.75+.5*i,.25,-Math.PI/2,Math.PI/2);ctx.stroke()}
      L(-.12,-1.15,-.12,1.15);L(.12,-1.15,.12,1.15);
      ctx.beginPath();ctx.arc(-.7,-1.2,.1,0,7);ctx.fill();ctx.beginPath();ctx.arc(.7,p&&p.inv?1.2:-1.2,.1,0,7);ctx.fill();break}
+   case'AOP':{ctx.beginPath();ctx.moveTo(-1.4,-1.6);ctx.lineTo(-1.4,1.6);ctx.lineTo(1.4,0);ctx.closePath();ctx.stroke();
+     L(-2,-1,-1.4,-1);L(-2,1,-1.4,1);L(1.4,0,2,0);const yp=p&&p.swap?-1:1;
+     L(-1.18,yp,-.78,yp);L(-.98,yp-.2,-.98,yp+.2);L(-1.18,-yp,-.78,-yp);break}
    case'gnd':L(0,0,0,.5);L(-.6,.5,.6,.5);L(-.4,.75,.4,.75);L(-.2,1,.2,1);break}}
 function compLabel(c){const p=c.p;
   switch(c.type){case'R':return fmtSI(p.R)+'Ω';case'L':return fmtSI(p.L)+'H';case'C':return fmtSI(p.C)+'F';case'Vdc':return fmtSI(p.V)+' V';
@@ -622,6 +662,7 @@ function compLabel(c){const p=c.p;
    case'TRI':return fmtSI(p.min)+' … '+fmtSI(p.max)+' · '+fmtSI(p.f)+'Hz';case'CMP':return 'in+ > in−'+(p.hyst?' · h='+fmtSI(p.hyst):'');
    case'SUM':return (p.s1<0?'−':'')+'e1'+(p.s2<0?' − ':' + ')+'e2';case'GAIN':return 'K='+fmtSI(p.K);case'PI':return 'Kp='+fmtSI(p.Kp)+' Ki='+fmtSI(p.Ki);
    case'SV':return 'K='+fmtSI(p.K);case'SI':return 'K='+fmtSI(p.K);
+   case'AOP':return (p.mode==='ideal'?'idéal':p.mode==='perso'?'perso':p.mode)+' · '+(p.Vcc===-p.Vee?'±'+fmtSI(p.Vcc):fmtSI(p.Vcc)+'/'+fmtSI(p.Vee))+' V';
    case'D':return p.Vf+' V';case'SCR':return p.mode==='ext'?'G ext.':'α='+p.alpha+'° · réf '+p.ph+'°';default:return ''}}
 function makeIcon(type){const cv=document.createElement('canvas');cv.width=112;cv.height=52;const x=cv.getContext('2d');x.scale(2,2);x.translate(28,type==='gnd'?4:(type==='SV'||type==='SI')?18:13);x.scale(9.5,9.5);x.lineWidth=.14;
   drawSymbol(x,type,Object.assign({},DEFAULTS[type]),css('--ink'),true);if(GLYPH[type]){x.font='600 1.35px '+css('--ui');x.textAlign='center';x.textBaseline='middle';x.fillText(GLYPH[type],0,0)}return cv}
@@ -739,8 +780,9 @@ function drawComp(c,col,selected,probed){
   if(GLYPH[c.type]){cx.fillStyle=col;cx.font='600 '+Math.max(10,15*view.s)+'px '+css('--ui');cx.textAlign='center';cx.textBaseline='middle';cx.fillText(GLYPH[c.type],px,py)}
   drawAnn(c);
   if(c.type==='gnd'||!c.name)return;
-  const bl=BLOCK_TYPES.has(c.type)||c.type==='XF',top=(c.type==='SV'||c.type==='SI'||(c.type==='SW'&&c.p.mode==='ext'))?2.35:bl?1.5:1.05,rgt=bl?1.7:1.2,v=((c.rot%2)===1);cx.fillStyle=col;cx.font='500 '+Math.max(10,12*view.s)+'px '+css('--ui');
-  if(!v){cx.textAlign='center';cx.textBaseline='alphabetic';cx.fillText(c.name,px,py-top*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');if(showVals)cx.fillText(compLabel(c),px,py+(c.type==='SW'&&c.p.body?1.55:bl?1.45:1.2)*u+8*view.s)}
+  const bl=BLOCK_TYPES.has(c.type)||c.type==='XF'||c.type==='AOP',top=(c.type==='SV'||c.type==='SI'||(c.type==='SW'&&c.p.mode==='ext'))?2.35:bl?1.5:1.05,rgt=bl?1.7:1.2,v=((c.rot%2)===1);cx.fillStyle=col;cx.font='500 '+Math.max(10,12*view.s)+'px '+css('--ui');
+  if(!v&&c.type==='AOP'){const sg=((c.rot%4)+4)%4===2?-1:1;cx.textAlign='left';cx.textBaseline='alphabetic';cx.fillText(c.name,px-.3*u,py-sg*1.85*u+(sg<0?8*view.s:0));cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');if(showVals)cx.fillText(compLabel(c),px-.3*u,py+sg*1.85*u+(sg>0?8*view.s:0))}
+  else if(!v){cx.textAlign='center';cx.textBaseline='alphabetic';cx.fillText(c.name,px,py-top*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');if(showVals)cx.fillText(compLabel(c),px,py+(c.type==='SW'&&c.p.body?1.55:bl?1.45:1.2)*u+8*view.s)}
   else{cx.textAlign='left';cx.textBaseline='alphabetic';cx.fillText(c.name,px+rgt*u,py-.1*u);cx.fillStyle=css('--muted');cx.font=Math.max(9,11*view.s)+'px '+css('--mono');if(showVals)cx.fillText(compLabel(c),px+rgt*u,py+.6*u)}
   if(probed){cx.fillStyle=css('--accent');cx.beginPath();cx.arc(px+(v?-.0:0),py+(v?0:0)-(v?0:0),0,0,1);cx.fill()}
 }
@@ -808,12 +850,14 @@ function renderInsp(){const box=$('insp');box.innerHTML='';
       const upd=()=>{snap();if(!sl.value)delete c.ann[k];else c.ann[k]={dir:sl.value,label:lb.value.trim().slice(0,24)};changed()};sl.onchange=upd;lb.onchange=()=>{if(c.ann[k])upd()};
       box.append(el('div',{class:'field'},el('label',{for:id},t),el('span',{style:'display:flex;gap:4px'},sl,lb)))}}
   const row=el('div',{class:'row'});const kinds=kindsFor(c);
-  for(const k of kinds){const lab=(k==='i'&&(c.type==='Vdc'||c.type==='Vac'))?'courant fourni':KIND[k][0];row.append(el('button',{class:'btn sm',onclick:()=>addProbe(c.id,k)},'+ '+lab))}
-  if(kinds.includes('v')&&kinds.includes('i')&&!['XF','SV','SI','Vdc','Vac','Idc','Iac'].includes(c.type))row.append(el('button',{class:'btn sm',onclick:()=>addPower(c.id)},'+ puissance'));
+  for(const k of kinds){const lab=kindLabel(c,k);row.append(el('button',{class:'btn sm',onclick:()=>addProbe(c.id,k)},'+ '+lab))}
+  if(kinds.includes('v')&&kinds.includes('i')&&!['XF','SV','SI','Vdc','Vac','Idc','Iac','AOP'].includes(c.type))row.append(el('button',{class:'btn sm',onclick:()=>addPower(c.id)},'+ puissance'));
   if(kinds.length){box.append(el('div',{class:'lbl',style:'margin:8px 0 5px'},'Ajouter une sonde'),row)}
   const r2=el('div',{class:'row',style:'margin-top:10px'});r2.append(el('button',{class:'btn sm',onclick:rotateSel},'Pivoter'),el('button',{class:'btn sm',onclick:deleteSel},'Supprimer'));box.append(r2)}
-function kindsFor(c){const t=c.type;if(t==='gnd')return[];if(t==='XF')return['v','i','v2','i2'];if(BLOCK_TYPES.has(t))return['o'];if(t==='SV')return['v','va','vb','o'];if(t==='SI')return['i','v','o'];if(t==='SW'||t==='SCR')return['v','i','va','vb','g'];return['v','i','va','vb']}
-function probeName(p){if(p.kind==='m')return mathName(p);const c=circuit.comps.find(c=>c.id===p.comp);if(!c)return'?';if(c.type==='XF'&&(p.kind==='v'||p.kind==='i'))return c.name+' · '+(p.kind==='v'?'tension primaire':'courant primaire');const lab=(p.kind==='i'&&(c.type==='Vdc'||c.type==='Vac'))?'courant fourni':KIND[p.kind][0];return c.name+' · '+lab}
+function kindsFor(c){const t=c.type;if(t==='gnd')return[];if(t==='AOP')return['vs','i','v','va','vb'];if(t==='XF')return['v','i','v2','i2'];if(BLOCK_TYPES.has(t))return['o'];if(t==='SV')return['v','va','vb','o'];if(t==='SI')return['i','v','o'];if(t==='SW'||t==='SCR')return['v','i','va','vb','g'];return['v','i','va','vb']}
+function probeName(p){if(p.kind==='m')return mathName(p);const c=circuit.comps.find(c=>c.id===p.comp);if(!c)return'?';if(c.type==='XF'&&(p.kind==='v'||p.kind==='i'))return c.name+' · '+(p.kind==='v'?'tension primaire':'courant primaire');return c.name+' · '+kindLabel(c,p.kind)}
+const AOP_LAB={i:'courant de sortie',v:'tension d’entrée ε = V+ − V−',va:'potentiel entrée +',vb:'potentiel entrée −'};
+function kindLabel(c,k){if(c.type==='AOP'&&AOP_LAB[k])return AOP_LAB[k];return(k==='i'&&(c.type==='Vdc'||c.type==='Vac'))?'courant fourni':KIND[k][0]}
 function addProbe(comp,kind){if(probes.some(p=>p.comp===comp&&p.kind===kind))return;snap();const np={id:pidc++,comp,kind,show:true};probes.push(np);reg(np);persist();renderProbes();simulate()}
 
 /* ---------- Courbes calculées ---------- */

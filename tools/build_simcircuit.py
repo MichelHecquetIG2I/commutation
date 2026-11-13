@@ -38,6 +38,11 @@ def construit_index():
     s, n = re.subn(r'</optgroup><optgroup label="Électronique de puissance">.*?</optgroup>', "</optgroup>", s, count=1, flags=re.S)
     if n != 1:
         raise SystemExit("Groupe « Électronique de puissance » introuvable dans la liste des exemples.")
+    s, n = re.subn(r'<optgroup label="Amplificateurs opérationnels">.*?</optgroup>', "", s, count=1, flags=re.S)
+    if n != 1:
+        raise SystemExit("Groupe « Amplificateurs opérationnels » introuvable dans la liste des exemples.")
+    # Composant AOP réservé à Commutation : retiré de la palette
+    s = remplace(s, "['AOP','AOP'],", "", 1)
     # Lien ?ex= : refuser les exemples absents de SimCircuit
     s = remplace(s, "return Object.prototype.hasOwnProperty.call(PRESETS,ex)?ex:null",
                  "return " + json.dumps(EXEMPLES) + ".includes(ex)?ex:null", 1)
