@@ -64,7 +64,9 @@ coupe d’un quart avec la carte de |B| sur les faces coupées. Solveur : `fem-a
 
 ### Réseau de réluctances maillé (MEC) — comparaison avec les éléments finis
 
-Dans le même onglet, la case « Comparer avec un réseau de réluctances » résout aussi le problème par un **réseau de
+Mode dédié **SimMEC** (troisième entrée du sélecteur, `magnetique.html?mode=mec`, aussi dans SimCircuit) : le réseau de
+réluctances est le calcul principal, les éléments finis servent de référence. Dans le mode éléments finis, la case
+« Comparer avec un réseau de réluctances » résout aussi le problème par un **réseau de
 réluctances maillé** (modèle du L2EP : F. Gillon, O. Bouchakour ; thèse de V. Martin, § 4.2.1), transposé en axisymétrique
 (`mec-axi.js`) : grille de n × n cellules (n ≤ 50) avec un nœud par cellule et 4 demi-branches, réluctances
 radiales `ln(r₂/r₁)/(2πµΔz)` et axiales `(Δz/2)/(µπ(r₂²−r₁²))`, inconnues = flux de mailles aux coins des cellules,
@@ -94,7 +96,7 @@ lancer un serveur local (`python3 -m http.server 8765`) puis `python3 tools/tuto
 
 ## SimCircuit
 
-`SimCircuit/` est une version allégée. Un sélecteur **SimCir / SimEF** en haut à gauche donne accès soit aux circuits
+`SimCircuit/` est une version allégée. Un sélecteur **SimCir / SimEF / SimMEC** en haut à gauche donne accès soit aux circuits
 de base (RL, RC, R-L-E, démarrage d’un robot, machine à courant continu), soit au calcul par éléments finis
 (`SimCircuit/magnetique.html`, mêmes exemples air / noyau / pot et vue 3D) :
 `https://michelhecquetig2i.github.io/commutation/SimCircuit/` (mêmes liens `?ex=rl`, `?ex=rc`, `?ex=rle`, `?ex=mcc` et `?tuto=1…3`).

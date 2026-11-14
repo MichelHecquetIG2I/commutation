@@ -63,8 +63,8 @@ code{font-family:var(--mono);font-size:12px}
 <body><div class="app">
 <header class="top">
   <div class="brand"><i></i>SimCircuit</div>
-  <nav class="apptabs radio" aria-label="Mode"><a href="index.html" title="Simulation de circuits">SimCir</a><a class="on" href="magnetique.html" aria-current="page" title="Calcul par éléments finis (inductances)">SimEF</a></nav>
-  <span class="hint" style="margin:0">Calcul d’inductance par éléments finis — bobine axisymétrique</span>
+  <nav class="apptabs radio" aria-label="Mode"><a href="index.html" title="Simulation de circuits">SimCir</a><a class="on" href="magnetique.html" data-mode="ef" title="Calcul d’inductance par éléments finis">SimEF</a><a href="magnetique.html?mode=mec" data-mode="mec" title="Calcul d’inductance par réseau de réluctances (Magnetic Equivalent Circuit)">SimMEC</a></nav>
+  <span class="hint" style="margin:0" id="subtitle">Calcul d’inductance par éléments finis — bobine axisymétrique</span>
 </header>
 <div class="main">
   <aside class="side">
@@ -89,10 +89,10 @@ code{font-family:var(--mono);font-size:12px}
       <div class="f"><label for="mur">µr (initiale si B(H))</label><input id="mur" value="2000"></div>
       <div class="hint" id="bhhint">Courbe B(H) : fer doux standard, µr ≈ 2000 en zone linéaire, saturation vers 1,7 T.</div>
     </div>
-    <h3>Maillage</h3>
+    <h3 id="hMaillage">Maillage</h3>
     <div class="f"><label for="ds">Finesse</label><select id="ds"><option value="2">Grossier (2 mm)</option><option value="1" selected>Moyen (1 mm)</option><option value="0.5">Fin (0,5 mm)</option></select></div>
     <h3>Réseau de réluctances (MEC)</h3>
-    <label class="chk"><input type="checkbox" id="mecOn" checked>Comparer avec un réseau de réluctances</label>
+    <label class="chk" id="mecOnRow"><input type="checkbox" id="mecOn" checked>Comparer avec un réseau de réluctances</label>
     <div class="f"><label for="mecN">Cellules (n × n)</label><select id="mecN"><option value="20">20 × 20</option><option value="30">30 × 30</option><option value="40">40 × 40</option><option value="50" selected>50 × 50</option></select></div>
     <div class="f"><label for="air">Couche d’air autour <span class="u">(mm)</span></label><input id="air" value="30"></div>
     <div class="hint">Flux nul (Dirichlet) sur le pourtour ; bobinage remplacé par des sources de f.m.m. ; B(H) non linéaire par branche.</div>
@@ -113,7 +113,7 @@ code{font-family:var(--mono);font-size:12px}
         <button class="btn" id="reset3" style="padding:2px 8px">Vue initiale</button><span class="hint">Glisser : tourner · molette : zoom</span></div></div>
   </section>
   <aside class="res">
-    <h3>Inductance (éléments finis)</h3>
+    <h3 id="hL">Inductance (éléments finis)</h3>
     <div class="big" id="Lval">—</div>
     <div id="cmp"></div>
     <h3>Flux et champ</h3>
@@ -156,6 +156,7 @@ const fmtSI=(v,u,d=3)=>{if(!isFinite(v))return '—';const a=Math.abs(v),P=[[1e-
   return (v/p[0]).toLocaleString('fr-FR',{maximumSignificantDigits:d+1,minimumSignificantDigits:Math.min(d+1,3)})+' '+p[1]+u};
 const num=id=>{const v=parseFloat(String($(id).value).replace(',','.'));return v};
 let R=null, sweepData=null;
+const MODE=new URL(location.href).searchParams.get('mode')==='mec'?'mec':'ef';
 
 function loadExample(k){const e=EX[k];for(const [key,v] of Object.entries(e)){const el=$(key==='mat'?'mat':key);if(el)el.value=v}
   $('ironbox').style.display=k==='air'?'none':'';$('hnrow').style.display=k==='noyau'?'':'none';sweepData=null;run()}
@@ -176,11 +177,11 @@ function run(){const p=params(),bad=check(p);if(bad){$('status').textContent=bad
       if(p.core==='noyau'){const pa={...p,core:'air'};R.Lair=FEM.solve(pa).L}
       show();draw();build3D();draw3D()}catch(err){$('status').textContent='Erreur : '+err.message}},20)}
 
-function show(){const p=R.p,L=R.L;$('Lval').textContent=fmtSI(L,'H');
+function show(){const p=R.p,L=MODE==='mec'&&R.mec?R.mec.L:R.L;$('Lval').textContent=fmtSI(L,'H');const tag=MODE==='mec'&&R.mec?'MEC':'EF';
   let h='';const pct=(a,b)=>{const d=(a/b-1)*100;return (d>=0?'+':'')+d.toFixed(1)+' %'};
-  if(R.ana){h+=`<div class="cmp">${R.ana.label} :<br><b>${fmtSI(R.ana.L,'H')}</b> — écart EF : <b>${pct(L,R.ana.L)}</b></div>`;
-    if(R.ana.L2)h+=`<div class="cmp">${R.ana.label2} :<br><b>${fmtSI(R.ana.L2,'H')}</b> — écart EF : <b>${pct(L,R.ana.L2)}</b></div>`}
-  if(R.Lair)h+=`<div class="cmp">Même bobine dans l’air : <b>${fmtSI(R.Lair,'H')}</b><br>Le noyau multiplie L par <b>${(L/R.Lair).toFixed(2)}</b> (circuit magnétique ouvert : l’air limite le gain).</div>`;
+  if(R.ana){h+=`<div class="cmp">${R.ana.label} :<br><b>${fmtSI(R.ana.L,'H')}</b> — écart ${tag} : <b>${pct(L,R.ana.L)}</b></div>`;
+    if(R.ana.L2)h+=`<div class="cmp">${R.ana.label2} :<br><b>${fmtSI(R.ana.L2,'H')}</b> — écart ${tag} : <b>${pct(L,R.ana.L2)}</b></div>`}
+  if(R.Lair&&tag==='EF')h+=`<div class="cmp">Même bobine dans l’air : <b>${fmtSI(R.Lair,'H')}</b><br>Le noyau multiplie L par <b>${(L/R.Lair).toFixed(2)}</b> (circuit magnétique ouvert : l’air limite le gain).</div>`;
   if(p.core==='pot'||p.core==='noyau'){const lin=R.hasNL?'':`<br>Contrôle énergétique : 2W/I² = <b>${fmtSI(R.Lw,'H')}</b>`;h+=lin?`<div class="cmp">${lin.slice(4)}</div>`:''}
   else h+=`<div class="cmp">Contrôle énergétique : 2W/I² = <b>${fmtSI(R.Lw,'H')}</b></div>`;
   if(R.mec){const M=R.mec,g=M.grid,row=(k,a,b,u)=>`<tr><td>${k}</td><td>${fmtSI(a,u)}</td><td>${fmtSI(b,u)}</td><td>${isFinite(a)&&isFinite(b)&&a?pct(b,a):'—'}</td></tr>`;
@@ -191,6 +192,14 @@ function show(){const p=R.p,L=R.L;$('Lval').textContent=fmtSI(L,'H');
       `<tr><td>Itérations / temps</td><td>${R.it} · ${Math.round(R.ms)} ms</td><td>${M.it} · ${Math.round(M.ms)} ms</td><td></td></tr></table>`+
       `<div class="hint">Domaine MEC : r ≤ ${g.Rd.toFixed(0)} mm, |z| ≤ ${g.Zd.toFixed(0)} mm (couche d’air ${p.air} mm). B max : moyenne par cellule (MEC) / pic local aux coins (EF).</div>`}
   $('cmp').innerHTML=h;
+  if(tag==='MEC'){const M=R.mec,g=M.grid;const rows=[['Flux totalisé λ = N·⟨φm⟩',fmtSI(M.lambda,'Wb')],['Flux moyen par spire λ/N',fmtSI(M.lambda/p.N,'Wb')],
+      ['Flux principal Φ (plan médian, r < rᵢ)',fmtSI(M.phiCore,'Wb')],['L = 2W/I² (énergie)',fmtSI(M.Lw,'H')],['Énergie magnétique W',fmtSI(M.W,'J')],
+      ['Densité de courant J',fmtSI(M.J/1e6,'A/mm²')]];
+    if(R.isIron.some(v=>v))rows.push(['B max fer (moyenne par cellule)',fmtSI(M.BmaxIron,'T')]);
+    rows.push(['Cellules / branches',g.nr+' × '+g.nz+' / '+M.branches.toLocaleString('fr-FR')],['Flux de mailles (inconnues)',M.unknowns.toLocaleString('fr-FR')],
+      ['Domaine (Dirichlet)',`r ≤ ${g.Rd.toFixed(0)} · |z| ≤ ${g.Zd.toFixed(0)} mm`],['Itérations (Newton)',R.hasNL?(M.it+(M.converged?' ✓':' ⚠ non convergé')):'1 (linéaire)']);
+    $('kv').innerHTML=rows.map(([k,v])=>`<span>${k}</span><b>${v}</b>`).join('');
+    $('status').textContent=`MEC : ${Math.round(M.ms)} ms · EF : ${Math.round(R.ms)} ms`;drawChart();return}
   const rows=[['Flux embrassé λ = N·⟨Φ⟩',fmtSI(R.lambda,'Wb')],['Flux moyen par spire λ/N',fmtSI(R.phiPerTurn,'Wb')],
     ['Flux principal Φ (plan médian, r < rᵢ)',fmtSI(R.phiCore,'Wb')],['Φ au rayon moyen du bobinage',fmtSI(R.phiMean,'Wb')],
     ['Densité de courant J',fmtSI(R.J/1e6,'A/mm²')],['Énergie magnétique W',fmtSI(R.W,'J')],
@@ -335,7 +344,11 @@ function build3D(){if(!R)return;const P=[],NS=64,cut=$('cut3').checked,t0=cut?Ma
       if(cut&&!$('field3').checked)for(const [t,sg] of [[t0,-1],[t1,1]]){const n=[-Math.sin(t)*sg,Math.cos(t)*sg,0];
         add([pt(g.r0,t,za),pt(g.r1,t,za),pt(g.r1,t,zb),pt(g.r0,t,zb)],n,col,'cut')}}}
   // carte de |B| sur les faces coupées (éléments du maillage situés dans les pièces)
-  if(cut&&$('field3').checked){const m=R.m,Bsc=(VIEW&&VIEW.Bsc)||1;for(let e=0;e<R.G.ne;e++){if(m.reg[e]<0)continue;const tri=[m.tri[3*e],m.tri[3*e+1],m.tri[3*e+2]];
+  if(cut&&$('field3').checked&&MODE==='mec'&&R.mec){const M=R.mec,g=M.grid,Bsc=(VIEW&&VIEW.Bsc)||1;
+    for(let i=0;i<g.nr;i++)for(let k=0;k<g.nz;k++){if(g.cell[i*g.nz+k]<0)continue;const col=cmap(M.Bmod[i*g.nz+k]/Bsc).match(/\d+/g).map(Number);
+      for(const [t,sg] of [[t0,-1],[t1,1]]){const n=[-Math.sin(t)*sg,Math.cos(t)*sg,0];
+        add([pt(g.R[i],t,g.Z[k]),pt(g.R[i+1],t,g.Z[k]),pt(g.R[i+1],t,g.Z[k+1]),pt(g.R[i],t,g.Z[k+1])],n,col,'field')}}}
+  else if(cut&&$('field3').checked){const m=R.m,Bsc=(VIEW&&VIEW.Bsc)||1;for(let e=0;e<R.G.ne;e++){if(m.reg[e]<0)continue;const tri=[m.tri[3*e],m.tri[3*e+1],m.tri[3*e+2]];
       const col=cmap(R.B.Bm[e]/Bsc).match(/\d+/g).map(Number);
       for(const [t,sg] of [[t0,-1],[t1,1]])for(const sz of [1,-1]){const n=[-Math.sin(t)*sg,Math.cos(t)*sg,0];
         add(tri.map(i=>pt(m.x[i]*1000,t,sz*m.y[i]*1000)),n,col,'field')}}}
@@ -365,6 +378,15 @@ function draw3D(){const dpr=devicePixelRatio||1,W=cv3.clientWidth,H=cv3.clientHe
   const reset=()=>{V3.yaw=-2.35;V3.pitch=0.42;V3.zoom=1;draw3D()};cv3.addEventListener('dblclick',reset);$('reset3').onclick=reset;
   $('cut3').onchange=$('field3').onchange=()=>{build3D();draw3D()};})();
 
-const q=new URL(location.href).searchParams.get('ex');if(q&&EX[q])$('ex').value=q;loadExample($('ex').value);
+/* ---------- mode : éléments finis (SimEF) ou réseau de réluctances (SimMEC) ---------- */
+function syncNav(){const ex=$('ex').value;document.querySelectorAll('.apptabs a[data-mode]').forEach(a=>{const on=a.dataset.mode===MODE;a.classList.toggle('on',on);
+    if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');a.href='magnetique.html?'+(a.dataset.mode==='mec'?'mode=mec&':'')+'ex='+ex})}
+if(MODE==='mec'){$('mecOn').checked=true;$('mecOnRow').style.display='none';$('mapSrc').value='mec';$('hL').textContent='Inductance (réseau de réluctances)';
+  $('hMaillage').textContent='Maillage EF (référence)';$('subtitle').textContent='Calcul d’inductance par réseau de réluctances maillé (Magnetic Equivalent Circuit) — comparaison aux éléments finis';
+  document.title=document.title.replace(/—.*$/,'— Réseau de réluctances (MEC)');
+  const side=$('mecOnRow').parentNode,hM=$('hMaillage'),mecH=[...side.querySelectorAll('h3')].find(h=>h.textContent.startsWith('Réseau de réluctances'));
+  if(mecH){const blk=[];let n=mecH;while(n&&!(n.tagName==='H3'&&n!==mecH&&n.textContent==='Affichage')){blk.push(n);n=n.nextElementSibling}blk.forEach(el=>side.insertBefore(el,hM))}}
+$('ex').addEventListener('change',syncNav);
+const q=new URL(location.href).searchParams.get('ex');if(q&&EX[q])$('ex').value=q;syncNav();loadExample($('ex').value);
 </script>
 </body></html>
