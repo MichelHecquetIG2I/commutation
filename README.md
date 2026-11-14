@@ -57,7 +57,9 @@ avec carte de |B|, lignes de flux, flux embrassé λ = N·⟨Φ⟩, flux princip
 | 3 · Pot fermé, entrefer 1 mm | `…/magnetique.html?ex=pot` | 8,51 mH | 7,24 mH sans épanouissement ; 8,43 mH avec facteur de McLyman |
 
 Fer : courbe B(H) = µ0·H + (2·Js/π)·atan(π(µr−1)µ0H/(2Js)), µr initiale 2000, Js = 1,7 T (ou µr constant), résolution non linéaire
-par Newton-Raphson. Le bouton « Courbe L(I) » trace l’inductance sécante jusqu’à la saturation. Solveur : `fem-axi.js`
+par Newton-Raphson. Le bouton « Courbe L(I) » trace l’inductance sécante jusqu’à la saturation.
+À droite de la coupe, une **vue 3D** du composant (volumes de révolution) : rotation à la souris, zoom à la molette,
+coupe d’un quart avec la carte de |B| sur les faces coupées. Solveur : `fem-axi.js`
 (utilisable aussi sous Node : `require('./fem-axi.js').solve({...})`).
 
 ## Tutoriel vidéo
@@ -75,7 +77,9 @@ lancer un serveur local (`python3 -m http.server 8765`) puis `python3 tools/tuto
 
 ## SimCircuit
 
-`SimCircuit/` est une version allégée limitée aux circuits RL, RC, R-L-E et machine à courant continu :
+`SimCircuit/` est une version allégée. Un sélecteur **SimCir / SimEF** en haut à gauche donne accès soit aux circuits
+de base (RL, RC, R-L-E, démarrage d’un robot, machine à courant continu), soit au calcul par éléments finis
+(`SimCircuit/magnetique.html`, mêmes exemples air / noyau / pot et vue 3D) :
 `https://michelhecquetig2i.github.io/commutation/SimCircuit/` (mêmes liens `?ex=rl`, `?ex=rc`, `?ex=rle`, `?ex=mcc` et `?tuto=1…3`).
 Ce dossier est généré : modifier `index.html` à la racine puis lancer `python3 tools/build_simcircuit.py`.
 
