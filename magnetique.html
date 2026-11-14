@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Commutation — Magnétique (éléments finis)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#e9edf1;--panel:#f6f8fa;--panel2:#ffffff;--line:#cdd5dd;--fg:#14202b;--muted:#5d6b79;--accent:#1c58e6;--accent-fg:#fff;--canvas:#fbfcfd;--good:#1e8a52;--bad:#c23a28;
+  --iron:#6b7480;--coil:#c97a1e;--ui:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1319;--panel:#141c24;--panel2:#18222c;--line:#27343f;--fg:#dce6ee;--muted:#8a9aa8;--accent:#6ea2ff;--accent-fg:#0b1220;--canvas:#10171e;--good:#4fd18b;--bad:#ff7a66;--iron:#9aa6b2;--coil:#f2b84b;color-scheme:dark}}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--ui)}
+button,input,select{font:inherit;color:inherit}
+.app{min-height:100%;display:grid;grid-template-rows:auto 1fr}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:8px max(16px,env(safe-area-inset-left,0px));background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-weight:600;letter-spacing:.02em;font-size:15px;display:flex;align-items:center;gap:8px}
+.brand i{display:inline-block;width:18px;height:18px;border:2px solid var(--accent);border-radius:3px}
+.apptabs{display:flex;gap:2px;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:2px}
+.apptabs a{padding:4px 12px;border-radius:5px;text-decoration:none;color:var(--muted);font-weight:500}
+.apptabs a.on{background:var(--panel2);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.apptabs a:not(.on):hover{color:var(--fg)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600;padding:6px 16px}
+.btn:disabled{opacity:.55;cursor:default}
+.main{display:grid;grid-template-columns:290px minmax(0,1fr) 320px;min-height:0}
+@media (max-width:1100px){.main{grid-template-columns:270px minmax(0,1fr)}.res{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}}
+@media (max-width:720px){.main{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line)}}
+.side,.res{background:var(--panel);padding:12px 14px;overflow:auto}
+.side{border-right:1px solid var(--line)}.res{border-left:1px solid var(--line)}
+h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px;font-weight:600}
+h3:first-child{margin-top:0}
+.f{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:6px;margin:4px 0}
+.f label{color:var(--fg)}.f .u{color:var(--muted);font-size:11px}
+.f input,.f select,select.full{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-family:var(--mono);text-align:right}
+select.full{text-align:left;font-family:var(--ui);margin-bottom:4px}
+.chk{display:flex;align-items:center;gap:6px;margin:4px 0}
+.hint{color:var(--muted);font-size:12px;margin:6px 0}
+.view{position:relative;background:var(--canvas);min-height:420px}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#tip{position:absolute;pointer-events:none;background:rgba(17,24,39,.9);color:#fff;font:12px/1.35 var(--mono);padding:5px 8px;border-radius:6px;display:none;white-space:nowrap}
+.legend{position:absolute;left:12px;bottom:10px;font:11px var(--mono);color:var(--muted);background:color-mix(in srgb,var(--canvas) 85%,transparent);padding:4px 6px;border-radius:5px}
+.status{position:absolute;right:12px;top:10px;font:12px var(--mono);color:var(--muted)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px}
+.kv b{font-family:var(--mono);font-weight:500;text-align:right}
+.big{font:600 26px/1.1 var(--mono);color:var(--accent);margin:2px 0 4px}
+.cmp{border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:6px 0;background:var(--panel2);font-size:12px}
+.cmp b{font-family:var(--mono)}
+.ok{color:var(--good)}.ko{color:var(--bad)}
+canvas.chart{width:100%;height:170px;background:var(--panel2);border:1px solid var(--line);border-radius:6px}
+details{margin-top:10px}summary{cursor:pointer;color:var(--accent)}
+details p,details li{color:var(--fg);font-size:12.5px}
+code{font-family:var(--mono);font-size:12px}
+</style></head>
+<body><div class="app">
+<header class="top">
+  <div class="brand"><i></i>Commutation</div>
+  <nav class="apptabs" aria-label="Applications"><a href="index.html">Circuits</a><a class="on" href="magnetique.html" aria-current="page">Magnétique (éléments finis)</a></nav>
+  <span class="hint" style="margin:0">Calcul d’inductance par éléments finis — bobine axisymétrique</span>
+</header>
+<div class="main">
+  <aside class="side">
+    <h3>Exemple</h3>
+    <select class="full" id="ex" aria-label="Exemple">
+      <option value="air">1 · Bobine dans l’air</option>
+      <option value="noyau">2 · Bobine avec noyau plongeur en fer</option>
+      <option value="pot">3 · Bobine dans un pot en fer avec entrefer</option>
+    </select>
+    <h3>Bobine</h3>
+    <div class="f"><label for="N">Nombre de spires N</label><input id="N" value="100"></div>
+    <div class="f"><label for="I">Courant I <span class="u">(A)</span></label><input id="I" value="1"></div>
+    <div class="f"><label for="ri">Rayon intérieur <span class="u">(mm)</span></label><input id="ri" value="15"></div>
+    <div class="f"><label for="re">Rayon extérieur <span class="u">(mm)</span></label><input id="re" value="25"></div>
+    <div class="f"><label for="h">Hauteur <span class="u">(mm)</span></label><input id="h" value="40"></div>
+    <div id="ironbox">
+      <h3>Fer</h3>
+      <div class="f"><label for="rn">Rayon du noyau <span class="u">(mm)</span></label><input id="rn" value="14"></div>
+      <div class="f" id="hnrow"><label for="hn">Longueur du noyau <span class="u">(mm)</span></label><input id="hn" value="40"></div>
+      <div class="f"><label for="gap">Entrefer central <span class="u">(mm)</span></label><input id="gap" value="1"></div>
+      <div class="f"><label for="mat">Matériau</label><select id="mat"><option value="bh">B(H) non linéaire</option><option value="lineaire">Linéaire (µr)</option></select></div>
+      <div class="f"><label for="mur">µr (initiale si B(H))</label><input id="mur" value="2000"></div>
+      <div class="hint" id="bhhint">Courbe B(H) : fer doux standard, µr ≈ 2000 en zone linéaire, saturation vers 1,7 T.</div>
+    </div>
+    <h3>Maillage</h3>
+    <div class="f"><label for="ds">Finesse</label><select id="ds"><option value="2">Grossier (2 mm)</option><option value="1" selected>Moyen (1 mm)</option><option value="0.5">Fin (0,5 mm)</option></select></div>
+    <h3>Affichage</h3>
+    <label class="chk"><input type="checkbox" id="showB" checked>Carte de |B|</label>
+    <label class="chk"><input type="checkbox" id="showFlux" checked>Lignes de flux</label>
+    <label class="chk"><input type="checkbox" id="showMesh">Maillage</label>
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn primary" id="run">Calculer</button>
+      <button class="btn" id="sweep" title="Inductance en fonction du courant (saturation du fer)">Courbe L(I)</button>
+    </div>
+  </aside>
+  <section class="view" aria-label="Carte du champ magnétique"><canvas id="cv"></canvas><div id="tip"></div><div class="legend" id="legend"></div><div class="status" id="status"></div></section>
+  <aside class="res">
+    <h3>Inductance (éléments finis)</h3>
+    <div class="big" id="Lval">—</div>
+    <div id="cmp"></div>
+    <h3>Flux et champ</h3>
+    <div class="kv" id="kv"></div>
+    <h3 id="chartTitle">Courbe B(H) du fer</h3>
+    <canvas class="chart" id="chart"></canvas>
+    <details><summary>Méthode de calcul</summary>
+      <p>Le problème est axisymétrique : on résout dans le demi-plan méridien (r, z) l’équation de la magnétostatique pour la fonction de flux <code>ψ = r·Aθ</code> :</p>
+      <p style="text-align:center"><code>−∂/∂r(ν/r·∂ψ/∂r) − ∂/∂z(ν/r·∂ψ/∂z) = J</code></p>
+      <ul>
+        <li>Les lignes de flux sont les courbes ψ = constante ; le flux à travers un disque de rayon r vaut Φ = 2π·ψ.</li>
+        <li>Champ : <code>Br = −(1/r)·∂ψ/∂z</code>, <code>Bz = (1/r)·∂ψ/∂r</code>.</li>
+        <li>Maillage triangulaire (éléments du 1er ordre) aligné sur les matériaux, raffiné autour de la bobine ; domaine de 400 mm avec ψ = 0 à la frontière et sur l’axe ; symétrie z = 0.</li>
+        <li>Flux embrassé : <code>λ = N·⟨Φ⟩</code>, moyenne de 2π·ψ sur la section du bobinage ; inductance <code>L = λ / I</code> (sécante si le fer sature).</li>
+        <li>Fer non linéaire : B(H) = µ0·H + (2·Js/π)·atan(π(µr−1)µ0H / 2Js), Js = 1,7 T ; résolution par Newton-Raphson.</li>
+        <li>Contrôle : en linéaire, l’énergie W = ∫B²/(2µ) dV donne L = 2W/I², qui doit coïncider.</li>
+      </ul>
+    </details>
+  </aside>
+</div></div>
+<script src="fem-axi.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), MU0=FEM.MU0;
+const EX={
+  air:{N:100,I:1,ri:15,re:25,h:40},
+  noyau:{N:100,I:1,ri:15,re:25,h:40,rn:14,hn:40,gap:0,mat:'bh',mur:2000},
+  pot:{N:100,I:1,ri:15,re:25,h:40,rn:14,gap:1,mat:'bh',mur:2000}};
+const fmtSI=(v,u,d=3)=>{if(!isFinite(v))return '—';const a=Math.abs(v),P=[[1e-9,'n'],[1e-6,'µ'],[1e-3,'m'],[1,''],[1e3,'k']];let p=P[3];for(const q of P)if(a>=q[0]*0.9999)p=q;if(a===0)p=P[3];
+  return (v/p[0]).toLocaleString('fr-FR',{maximumSignificantDigits:d+1,minimumSignificantDigits:Math.min(d+1,3)})+' '+p[1]+u};
+const num=id=>{const v=parseFloat(String($(id).value).replace(',','.'));return v};
+let R=null, sweepData=null;
+
+function loadExample(k){const e=EX[k];for(const [key,v] of Object.entries(e)){const el=$(key==='mat'?'mat':key);if(el)el.value=v}
+  $('ironbox').style.display=k==='air'?'none':'';$('hnrow').style.display=k==='noyau'?'':'none';sweepData=null;run()}
+function params(){const k=$('ex').value;
+  return {core:k,N:num('N'),I:num('I'),ri:num('ri'),re:num('re'),h:num('h'),rn:num('rn'),hn:num('hn'),gap:k==='air'?0:num('gap'),jeu:1,
+    material:$('mat').value,mur:num('mur'),Js:1.7,ds:+$('ds').value,Rmax:400}}
+function check(p){
+  for(const k of ['N','I','ri','re','h'])if(!(p[k]>0))return 'Valeur invalide : '+k;
+  if(!(p.re>p.ri))return 'Le rayon extérieur doit dépasser le rayon intérieur.';
+  if(p.core!=='air'){if(!(p.rn>0&&p.rn<p.ri))return 'Le rayon du noyau doit être compris entre 0 et le rayon intérieur de la bobine.';
+    if(!(p.mur>=1))return 'µr doit être ≥ 1.';if(p.gap<0)return 'Entrefer invalide.';
+    if(p.core==='noyau'&&!(p.hn>p.gap))return 'Longueur du noyau invalide.';if(p.core==='pot'&&!(p.gap<p.h))return 'Entrefer trop grand.'}
+  return null}
+
+function run(){const p=params(),bad=check(p);if(bad){$('status').textContent=bad;return}
+  $('status').textContent='Calcul…';
+  setTimeout(()=>{try{R=FEM.solve(p);R.ana=FEM.analytic(p,R.regs);
+      if(p.core==='noyau'){const pa={...p,core:'air'};R.Lair=FEM.solve(pa).L}
+      show();draw()}catch(err){$('status').textContent='Erreur : '+err.message}},20)}
+
+function show(){const p=R.p,L=R.L;$('Lval').textContent=fmtSI(L,'H');
+  let h='';const pct=(a,b)=>{const d=(a/b-1)*100;return (d>=0?'+':'')+d.toFixed(1)+' %'};
+  if(R.ana){h+=`<div class="cmp">${R.ana.label} :<br><b>${fmtSI(R.ana.L,'H')}</b> — écart EF : <b>${pct(L,R.ana.L)}</b></div>`;
+    if(R.ana.L2)h+=`<div class="cmp">${R.ana.label2} :<br><b>${fmtSI(R.ana.L2,'H')}</b> — écart EF : <b>${pct(L,R.ana.L2)}</b></div>`}
+  if(R.Lair)h+=`<div class="cmp">Même bobine dans l’air : <b>${fmtSI(R.Lair,'H')}</b><br>Le noyau multiplie L par <b>${(L/R.Lair).toFixed(2)}</b> (circuit magnétique ouvert : l’air limite le gain).</div>`;
+  if(p.core==='pot'||p.core==='noyau'){const lin=R.hasNL?'':`<br>Contrôle énergétique : 2W/I² = <b>${fmtSI(R.Lw,'H')}</b>`;h+=lin?`<div class="cmp">${lin.slice(4)}</div>`:''}
+  else h+=`<div class="cmp">Contrôle énergétique : 2W/I² = <b>${fmtSI(R.Lw,'H')}</b></div>`;
+  $('cmp').innerHTML=h;
+  const rows=[['Flux embrassé λ = N·⟨Φ⟩',fmtSI(R.lambda,'Wb')],['Flux moyen par spire λ/N',fmtSI(R.phiPerTurn,'Wb')],
+    ['Flux principal Φ (plan médian, r < rᵢ)',fmtSI(R.phiCore,'Wb')],['Φ au rayon moyen du bobinage',fmtSI(R.phiMean,'Wb')],
+    ['Densité de courant J',fmtSI(R.J/1e6,'A/mm²')],['Énergie magnétique W',fmtSI(R.W,'J')],
+    ['B max (total)',fmtSI(R.Bmax,'T')]];
+  if(R.isIron.some(v=>v))rows.push(['B max dans le fer',fmtSI(R.BmaxIron,'T')]);
+  rows.push(['Nœuds / éléments',R.m.nn.toLocaleString('fr-FR')+' / '+R.G.ne.toLocaleString('fr-FR')]);
+  rows.push(['Itérations (Newton)',R.hasNL?(R.it+(R.converged?' ✓':' ⚠ non convergé')):'1 (linéaire)']);
+  $('kv').innerHTML=rows.map(([k,v])=>`<span>${k}</span><b>${v}</b>`).join('');
+  $('status').textContent=`Résolu en ${Math.round(R.ms)} ms`;drawChart()}
+
+/* ---------- carte du champ ---------- */
+const cv=$('cv'),cx=cv.getContext('2d');let VIEW=null;
+const CMAP=[[0,[48,18,59]],[.15,[70,107,227]],[.3,[40,170,245]],[.45,[26,228,182]],[.6,[114,254,94]],[.72,[200,239,52]],[.84,[250,186,57]],[.93,[244,98,29]],[1,[180,24,4]]];
+function cmap(t){t=Math.max(0,Math.min(1,t));for(let i=1;i<CMAP.length;i++)if(t<=CMAP[i][0]){const [a,ca]=CMAP[i-1],[b,cb]=CMAP[i],u=(t-a)/(b-a);return `rgb(${ca.map((v,k)=>Math.round(v+(cb[k]-v)*u)).join(',')})`}return 'rgb(180,24,4)'}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function draw(){if(!R)return;const dpr=devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
+  cx.fillStyle=css('--canvas');cx.fillRect(0,0,W,H);
+  const regs=R.regs,m=R.m,p=R.p;let rmax=p.re,zmax=p.h/2;for(const g of regs){rmax=Math.max(rmax,g.r1);zmax=Math.max(zmax,g.z1)}
+  const rv=rmax*1.7,zv=Math.max(zmax*1.7,rv*0.55);const s=Math.min((W-40)/(2*rv),(H-50)/(2*zv)),ox=W/2,oy=H/2;VIEW={s,ox,oy,rv,zv};
+  const X=(r,sg)=>ox+sg*r*1000*s, Y=(z,sz)=>oy-sz*z*1000*s;
+  const ne=R.G.ne,tri=m.tri,x=m.x,y=m.y,Bm=R.B.Bm;
+  // échelle : 99e centile de |B| dans la vue
+  const vals=[];for(let e=0;e<ne;e++){if(R.G.rc[e]*1000<rv&&y[tri[3*e]]*1000<zv)vals.push(Bm[e])}vals.sort((a,b)=>a-b);
+  const Bsc=vals[Math.floor(vals.length*0.99)]||1;VIEW.Bsc=Bsc;
+  const quads=[[1,1],[-1,1],[1,-1],[-1,-1]];
+  if($('showB').checked){for(let e=0;e<ne;e++){const a=tri[3*e],b=tri[3*e+1],c=tri[3*e+2];if(x[a]*1000>rv*1.05&&x[b]*1000>rv*1.05)continue;if(y[a]*1000>zv*1.05&&y[c]*1000>zv*1.05)continue;
+      cx.fillStyle=cmap(Bm[e]/Bsc);for(const [sr,sz] of quads){cx.beginPath();cx.moveTo(X(x[a],sr),Y(y[a],sz));cx.lineTo(X(x[b],sr),Y(y[b],sz));cx.lineTo(X(x[c],sr),Y(y[c],sz));cx.closePath();cx.fill();cx.strokeStyle=cx.fillStyle;cx.lineWidth=.6;cx.stroke()}}}
+  if($('showMesh').checked){cx.strokeStyle='rgba(120,130,140,.35)';cx.lineWidth=.5;cx.beginPath();for(let e=0;e<ne;e++){const a=tri[3*e],b=tri[3*e+1],c=tri[3*e+2];if(x[a]*1000>rv*1.05||y[a]*1000>zv*1.05)continue;
+      for(const [sr,sz] of quads){cx.moveTo(X(x[a],sr),Y(y[a],sz));cx.lineTo(X(x[b],sr),Y(y[b],sz));cx.lineTo(X(x[c],sr),Y(y[c],sz));cx.lineTo(X(x[a],sr),Y(y[a],sz))}}cx.stroke()}
+  // contours des régions
+  for(const g of regs){const col=g.mat==='coil'?css('--coil'):css('--iron');cx.lineWidth=g.mat==='coil'?2:1.6;cx.strokeStyle=col;
+    // région symétrique (z0 = 0) : un seul rectangle de −z1 à z1 ; sinon les deux moitiés (entrefer visible)
+    const zq=g.z0===0?[[-1,1]]:[[1,1],[-1,-1]];
+    for(const sr of [1,-1])for(const [za,zb] of zq){const x0=X(g.r0/1000,sr),x1=X(g.r1/1000,sr),y0=Y(g.z0/1000*(g.z0===0?0:1)*za+(g.z0===0?-g.z1/1000:0),1),y1=Y(g.z1/1000*zb,1);
+      const ya=g.z0===0?Y(-g.z1/1000,1):Y(za*g.z0/1000,1),yb=g.z0===0?Y(g.z1/1000,1):Y(za*g.z1/1000,1);cx.strokeRect(Math.min(x0,x1),Math.min(ya,yb),Math.abs(x1-x0),Math.abs(yb-ya))}
+    if(!$('showB').checked&&g.mat==='iron'){cx.fillStyle='rgba(120,130,140,.25)';for(const [sr,sz] of quads){const x0=X(g.r0/1000,sr),x1=X(g.r1/1000,sr),y0=Y(g.z0/1000,sz),y1=Y(g.z1/1000,sz);cx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0))}}}
+  // lignes de flux (ψ = cste)
+  if($('showFlux').checked){let pmax=0;for(let i=0;i<m.nn;i++)pmax=Math.max(pmax,Math.abs(R.psi[i]));const nl=16;cx.strokeStyle=$('showB').checked?'rgba(255,255,255,.85)':css('--fg');cx.lineWidth=1;cx.beginPath();
+    for(let e=0;e<ne;e++){const n=[tri[3*e],tri[3*e+1],tri[3*e+2]];if(x[n[0]]*1000>rv*1.1||y[n[0]]*1000>zv*1.1)continue;const v=n.map(i=>R.psi[i]);
+      const lo=Math.min(...v),hi=Math.max(...v);for(let k=1;k<=nl;k++){const lv=pmax*(k-.5)/nl;if(lv<lo||lv>hi)continue;const pts=[];
+        for(let q=0;q<3;q++){const i=q,j=(q+1)%3;if((v[i]-lv)*(v[j]-lv)<0||(v[i]===lv&&v[j]!==lv)){const t=(lv-v[i])/(v[j]-v[i]);pts.push([x[n[i]]+t*(x[n[j]]-x[n[i]]),y[n[i]]+t*(y[n[j]]-y[n[i]])])}}
+        if(pts.length>=2)for(const [sr,sz] of quads){cx.moveTo(X(pts[0][0],sr),Y(pts[0][1],sz));cx.lineTo(X(pts[1][0],sr),Y(pts[1][1],sz))}}}cx.stroke()}
+  // axe de symétrie et sens du courant
+  cx.setLineDash([6,4]);cx.strokeStyle=css('--muted');cx.lineWidth=1;cx.beginPath();cx.moveTo(ox,8);cx.lineTo(ox,H-8);cx.stroke();cx.setLineDash([]);
+  const coil=regs.find(g=>g.mat==='coil'),rm=(coil.r0+coil.r1)/2000,zc=coil.z1/2000;cx.fillStyle=cx.strokeStyle=css('--coil');cx.lineWidth=1.6;
+  for(const sz of [1,-1]){const ax=X(rm,1),ay=Y(zc,sz),bx=X(rm,-1);cx.beginPath();cx.arc(ax,ay,6,0,7);cx.stroke();cx.beginPath();cx.moveTo(ax-4,ay-4);cx.lineTo(ax+4,ay+4);cx.moveTo(ax+4,ay-4);cx.lineTo(ax-4,ay+4);cx.stroke();
+    cx.beginPath();cx.arc(bx,ay,6,0,7);cx.stroke();cx.beginPath();cx.arc(bx,ay,2,0,7);cx.fill()}
+  cx.font='12px '+css('--mono');cx.fillStyle=css('--muted');cx.textAlign='left';cx.fillText('axe z',ox+6,18);
+  // échelle de longueur
+  const L10=10*s;cx.strokeStyle=css('--fg');cx.beginPath();cx.moveTo(W-20-L10,H-18);cx.lineTo(W-20,H-18);cx.moveTo(W-20-L10,H-22);cx.lineTo(W-20-L10,H-14);cx.moveTo(W-20,H-22);cx.lineTo(W-20,H-14);cx.stroke();
+  cx.fillStyle=css('--fg');cx.textAlign='center';cx.fillText('10 mm',W-20-L10/2,H-24);
+  const grad=Array.from({length:9},(_,i)=>`<span style="display:inline-block;width:16px;height:9px;background:${cmap(i/8)}"></span>`).join('');
+  $('legend').innerHTML=$('showB').checked?`|B| : 0 ${grad} ${fmtSI(Bsc,'T')}`:'';}
+
+cv.addEventListener('mousemove',ev=>{if(!R||!VIEW)return;const rect=cv.getBoundingClientRect(),px=ev.clientX-rect.left,py=ev.clientY-rect.top;
+  const r=Math.abs(px-VIEW.ox)/VIEW.s/1000,z=Math.abs(VIEW.oy-py)/VIEW.s/1000;const m=R.m;
+  let i=m.R.findIndex(v=>v/1000>r)-1,j=m.Z.findIndex(v=>v/1000>z)-1;if(i<0||j<0){$('tip').style.display='none';return}
+  const x0=m.R[i]/1000,x1=m.R[i+1]/1000,y0=m.Z[j]/1000,y1=m.Z[j+1]/1000,u=(r-x0)/(x1-x0),w=(z-y0)/(y1-y0);
+  const e=2*(i*m.nz+j)+(w>u?1:0);const g=m.reg[e]>=0?R.regs[m.reg[e]].name:'Air';
+  const tip=$('tip');tip.innerHTML=`r = ${(r*1000).toFixed(1)} mm · z = ${(Math.sign(VIEW.oy-py)*z*1000).toFixed(1)} mm<br>|B| = ${fmtSI(R.B.Bm[e],'T')} · ${g}`+(R.isIron[e]?`<br>µr = ${(1/(R.nu[e]*MU0)).toFixed(0)}`:'');
+  tip.style.display='block';tip.style.left=Math.min(px+14,cv.clientWidth-tip.offsetWidth-6)+'px';tip.style.top=(py+14)+'px'});
+cv.addEventListener('mouseleave',()=>$('tip').style.display='none');
+
+/* ---------- graphique : B(H) ou L(I) ---------- */
+function drawChart(){const c=$('chart'),dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,W,H);const pad={l:44,r:10,t:10,b:28};const fg=css('--fg'),mu=css('--muted'),ac=css('--accent');g.font='11px '+css('--mono');
+  let xs,ys,xl,yl,xmax,ymax,pts;
+  if(sweepData){$('chartTitle').textContent='Inductance (sécante) L en fonction du courant I';const Lm=Math.max(...sweepData.map(d=>d.L)),k=Lm<1e-3?1e6:1e3;pts=sweepData.map(d=>[d.I,d.L*k]);xl='I (A)';yl=k===1e6?'L (µH)':'L (mH)'}
+  else{$('chartTitle').textContent='Courbe B(H) du fer';const ir=FEM.makeIron(R?R.p.mur:2000,1.7);pts=[];for(let h=0;h<=10000;h+=100)pts.push([h,ir.B(h)]);xl='H (A/m)';yl='B (T)'}
+  xmax=Math.max(...pts.map(q=>q[0]))*1.02;ymax=Math.max(...pts.map(q=>q[1]))*1.12||1;
+  const X=v=>pad.l+v/xmax*(W-pad.l-pad.r),Y=v=>H-pad.b-v/ymax*(H-pad.t-pad.b);
+  g.strokeStyle=css('--line');g.lineWidth=1;g.fillStyle=mu;g.textAlign='right';
+  for(let k=0;k<=4;k++){const v=ymax*k/4;g.beginPath();g.moveTo(pad.l,Y(v));g.lineTo(W-pad.r,Y(v));g.stroke();g.fillText(v.toPrecision(2),pad.l-4,Y(v)+4)}
+  g.textAlign='center';for(let k=0;k<=4;k++){const v=xmax*k/4;g.fillText(v>=1000?(v/1000).toFixed(1)+'k':v.toPrecision(2),X(v),H-pad.b+14)}
+  g.fillText(xl,(W+pad.l)/2,H-2);g.save();g.translate(10,(H-pad.b)/2);g.rotate(-Math.PI/2);g.fillText(yl,0,0);g.restore();
+  g.strokeStyle=ac;g.lineWidth=2;g.beginPath();pts.forEach((q,i)=>i?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1])));g.stroke();
+  if(sweepData){g.fillStyle=ac;pts.forEach(q=>{g.beginPath();g.arc(X(q[0]),Y(q[1]),3,0,7);g.fill()})}
+  else if(R&&R.isIron.some(v=>v)){const ir=R.iron,b=R.BmaxIron,hh=ir.H(b);if(hh<=xmax){g.fillStyle=css('--bad');g.beginPath();g.arc(X(hh),Y(b),4,0,7);g.fill();g.textAlign='left';g.fillText('B max fer',X(hh)+6,Y(b)-6)}}}
+
+async function sweep(){const p=params(),bad=check(p);if(bad){$('status').textContent=bad;return}
+  if(p.core==='air'){$('status').textContent='Dans l’air, L ne dépend pas du courant.';return}
+  const btn=$('sweep');btn.disabled=true;sweepData=[];
+  // courant de départ choisi pour B fer ≈ 0,1 T (zone linéaire), puis augmentation jusqu'à B fer ≈ 2,1 T
+  const r0=FEM.solve({...p,material:'lineaire',ds:2});const Ib=0.1/Math.max(r0.BmaxIron/p.I,1e-12);
+  const Imax=2.1/Math.max(r0.BmaxIron/p.I,1e-12)*6;const n=16;
+  for(let k=0;k<n;k++){const I=+(Ib*Math.pow(Imax/Ib,k/(n-1))).toPrecision(3);$('status').textContent=`L(I) : I = ${fmtSI(I,'A')}…`;await new Promise(r=>setTimeout(r,0));
+    const r=FEM.solve({...p,I});sweepData.push({I,L:r.L,B:r.BmaxIron})}
+  btn.disabled=false;$('status').textContent='Courbe L(I) calculée (fer '+(p.material==='lineaire'?'linéaire : L constante':'non linéaire')+')';drawChart()}
+
+$('ex').onchange=()=>loadExample($('ex').value);$('run').onclick=()=>{sweepData=null;run()};$('sweep').onclick=sweep;
+for(const id of ['showB','showFlux','showMesh'])$(id).onchange=draw;
+for(const id of ['N','I','ri','re','h','rn','hn','gap','mur'])$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){sweepData=null;run()}});
+$('mat').onchange=$('ds').onchange=()=>{sweepData=null;run()};
+addEventListener('resize',()=>{draw();drawChart()});
+const q=new URL(location.href).searchParams.get('ex');if(q&&EX[q])$('ex').value=q;loadExample($('ex').value);
+</script>
+</body></html>

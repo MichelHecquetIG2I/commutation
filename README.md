@@ -44,6 +44,22 @@ Exemple : amplificateur inverseur G = −10 (`?ex=aop741`) —
 `https://michelhecquetig2i.github.io/commutation/?ex=aop741`. Pistes : Ve = 2 V (saturation), f = 20 kHz (vitesse de
 balayage : sortie triangulaire), modèle TL081 ou Idéal pour comparer.
 
+## Onglet « Magnétique (éléments finis) »
+
+`https://michelhecquetig2i.github.io/commutation/magnetique.html` (onglet en haut de l’application, Commutation uniquement).
+Calcul de l’inductance d’une bobine par éléments finis (triangles, magnétostatique **axisymétrique**, potentiel vecteur Aθ),
+avec carte de |B|, lignes de flux, flux embrassé λ = N·⟨Φ⟩, flux principal (plan médian), énergie et L = λ/I.
+
+| Exemple (N = 100, rᵢ = 15 mm, rₑ = 25 mm, h = 40 mm) | Lien | L (maillage fin) | Référence |
+|---|---|---|---|
+| 1 · Bobine dans l’air | `…/magnetique.html?ex=air` | 217,6 µH | 217,9 µH (spires filiformes, exact) ; Wheeler 217,9 µH |
+| 2 · Noyau plongeur en fer (Ø 28 × 40 mm) | `…/magnetique.html?ex=noyau` | ≈ 0,69 mH (× 3,2) | — |
+| 3 · Pot fermé, entrefer 1 mm | `…/magnetique.html?ex=pot` | 8,51 mH | 7,24 mH sans épanouissement ; 8,43 mH avec facteur de McLyman |
+
+Fer : courbe B(H) = µ0·H + (2·Js/π)·atan(π(µr−1)µ0H/(2Js)), µr initiale 2000, Js = 1,7 T (ou µr constant), résolution non linéaire
+par Newton-Raphson. Le bouton « Courbe L(I) » trace l’inductance sécante jusqu’à la saturation. Solveur : `fem-axi.js`
+(utilisable aussi sous Node : `require('./fem-axi.js').solve({...})`).
+
 ## Tutoriel vidéo
 
 Le bouton **▶ Tutoriel** de l’en-tête ouvre trois courtes vidéos (fichiers dans `tutoriel/`) :

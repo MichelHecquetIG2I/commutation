@@ -34,6 +34,10 @@ def construit_index():
     # Nom de l'application
     s = remplace(s, "<title>Commutation</title>", "<title>SimCircuit</title>", 1)
     s = remplace(s, '<div class="brand"><i></i>Commutation</div>', '<div class="brand"><i></i>SimCircuit</div>', 1)
+    # Onglet « Magnétique (éléments finis) » réservé à Commutation
+    s, n = re.subn(r'\s*<nav class="apptabs".*?</nav>', "", s, count=1, flags=re.S)
+    if n != 1:
+        raise SystemExit("Onglets d’application introuvables dans l’en-tête.")
     # Liste des exemples : uniquement les circuits de base
     s, n = re.subn(r'</optgroup><optgroup label="Électronique de puissance">.*?</optgroup>', "</optgroup>", s, count=1, flags=re.S)
     if n != 1:
