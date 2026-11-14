@@ -62,6 +62,23 @@ par Newton-Raphson. Le bouton « Courbe L(I) » trace l’inductance sécante ju
 coupe d’un quart avec la carte de |B| sur les faces coupées. Solveur : `fem-axi.js`
 (utilisable aussi sous Node : `require('./fem-axi.js').solve({...})`).
 
+### Réseau de réluctances maillé (MEC) — comparaison avec les éléments finis
+
+Dans le même onglet, la case « Comparer avec un réseau de réluctances » résout aussi le problème par un **réseau de
+réluctances maillé** (modèle du L2EP : F. Gillon, O. Bouchakour ; thèse de V. Martin, § 4.2.1), transposé en axisymétrique
+(`mec-axi.js`) : grille de n × n cellules (n ≤ 50) avec un nœud par cellule et 4 demi-branches, réluctances
+radiales `ln(r₂/r₁)/(2πµΔz)` et axiales `(Δz/2)/(µπ(r₂²−r₁²))`, inconnues = flux de mailles aux coins des cellules,
+flux nul (Dirichlet) sur le pourtour du domaine (couche d’air réglable), bobinage remplacé par des sources de f.m.m.,
+B(H) non linéaire par branche (Newton-Raphson). Flux totalisé λ = N·⟨φm⟩, L = λ/I et L = 2W/I².
+
+| Pot avec entrefer, N = 100 | EF (fin) | MEC 20×20 | MEC 30×30 | MEC 40×40 | MEC 50×50 |
+|---|---|---|---|---|---|
+| L à I = 1 A | 8,506 mH | 8,117 (−4,6 %) | 8,271 (−2,8 %) | 8,326 (−2,1 %) | 8,371 mH (−1,6 %) |
+
+En saturation (MEC 50×50) : I = 10 A → 7,905 / 7,963 mH (−0,7 %) ; 20 A → 5,184 / 5,175 mH (+0,2 %) ; 40 A → 2,780 / 2,787 mH (−0,3 %).
+Circuits ouverts (air, noyau plongeur) : la couche d’air doit être grande (≈ 100 mm) — avec 10 mm, la condition de flux nul
+fait perdre 29 % (air) à 48 % (noyau) sur L.
+
 ## Tutoriel vidéo
 
 Le bouton **▶ Tutoriel** de l’en-tête ouvre trois courtes vidéos (fichiers dans `tutoriel/`) :
