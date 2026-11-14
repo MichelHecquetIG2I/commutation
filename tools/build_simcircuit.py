@@ -19,6 +19,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 DST = ROOT / "SimCircuit"
 EXEMPLES = ["rl", "rc", "rle", "robot", "mcc"]
 FICHIERS_EXEMPLES = ["circuit-RL.json", "circuit-RC.json", "circuit-RLE.json", "robot-demarrage.json", "machine-courant-continu.json"]
+NAV_CIR = ('<nav class="apptabs radio" aria-label="Mode"><a class="on" href="index.html" aria-current="page" title="Simulation de circuits">SimCir</a>'
+           '<a href="magnetique.html" title="Calcul par éléments finis (inductances)">SimEF</a></nav>')
+NAV_EF = ('<nav class="apptabs radio" aria-label="Mode"><a href="index.html" title="Simulation de circuits">SimCir</a>'
+          '<a class="on" href="magnetique.html" aria-current="page" title="Calcul par éléments finis (inductances)">SimEF</a></nav>')
 ICONES = ["apple-touch-icon.png", "favicon-32.png", "favicon.ico", "icon-192.png", "icon-512.png"]
 
 
@@ -34,8 +38,8 @@ def construit_index():
     # Nom de l'application
     s = remplace(s, "<title>Commutation</title>", "<title>SimCircuit</title>", 1)
     s = remplace(s, '<div class="brand"><i></i>Commutation</div>', '<div class="brand"><i></i>SimCircuit</div>', 1)
-    # Onglet « Magnétique (éléments finis) » réservé à Commutation
-    s, n = re.subn(r'\s*<nav class="apptabs".*?</nav>', "", s, count=1, flags=re.S)
+    # Sélecteur SimCir / SimEF en haut à gauche (à la place des onglets Circuits / Magnétique)
+    s, n = re.subn(r'<nav class="apptabs".*?</nav>', NAV_CIR, s, count=1, flags=re.S)
     if n != 1:
         raise SystemExit("Onglets d’application introuvables dans l’en-tête.")
     # Liste des exemples : uniquement les circuits de base
@@ -61,11 +65,23 @@ def construit_index():
     return s
 
 
+def construit_magnetique():
+    s = (ROOT / "magnetique.html").read_text(encoding="utf-8")
+    s = remplace(s, "<title>Commutation — Magnétique (éléments finis)</title>", "<title>SimCircuit — SimEF (éléments finis)</title>", 1)
+    s = remplace(s, '<div class="brand"><i></i>Commutation</div>', '<div class="brand"><i></i>SimCircuit</div>', 1)
+    s, n = re.subn(r'<nav class="apptabs".*?</nav>', NAV_EF, s, count=1, flags=re.S)
+    if n != 1:
+        raise SystemExit("Onglets introuvables dans magnetique.html.")
+    return s
+
+
 def main():
     if DST.exists():
         shutil.rmtree(DST)
     (DST / "exemples").mkdir(parents=True)
     (DST / "index.html").write_text(construit_index(), encoding="utf-8")
+    (DST / "magnetique.html").write_text(construit_magnetique(), encoding="utf-8")
+    shutil.copy2(ROOT / "fem-axi.js", DST / "fem-axi.js")
 
     sw = (ROOT / "service-worker.js").read_text(encoding="utf-8")
     sw = sw.replace("commutation-shell-", "simcircuit-shell-")
@@ -95,6 +111,14 @@ def main():
         f"| Circuit R-L-E (fcém) | {base}?ex=rle |",
         f"| Démarrage d’un robot (analogie RL) | {base}?ex=robot |",
         f"| Machine à courant continu | {base}?ex=mcc |",
+        "",
+        "Mode **SimEF** (sélecteur en haut à gauche) : calcul d’inductance par éléments finis, avec vue 3D.",
+        "",
+        "| Exemple SimEF | Lien |",
+        "|---|---|",
+        f"| Bobine dans l’air | {base}magnetique.html?ex=air |",
+        f"| Bobine avec noyau plongeur en fer | {base}magnetique.html?ex=noyau |",
+        f"| Bobine dans un pot en fer avec entrefer | {base}magnetique.html?ex=pot |",
         "",
     ]
     (DST / "README.md").write_text("\n".join(lignes), encoding="utf-8")

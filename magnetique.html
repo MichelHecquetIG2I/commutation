@@ -20,6 +20,8 @@ button,input,select{font:inherit;color:inherit}
 .apptabs a{padding:4px 12px;border-radius:5px;text-decoration:none;color:var(--muted);font-weight:500}
 .apptabs a.on{background:var(--panel2);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .apptabs a:not(.on):hover{color:var(--fg)}
+.apptabs.radio a{display:flex;align-items:center;gap:6px}.apptabs.radio a::before{content:"";width:11px;height:11px;border-radius:50%;border:2px solid var(--muted);box-sizing:border-box}
+.apptabs.radio a.on::before{border:3.5px solid var(--accent)}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 10px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600;padding:6px 16px}
 .btn:disabled{opacity:.55;cursor:default}
@@ -36,8 +38,13 @@ h3:first-child{margin-top:0}
 select.full{text-align:left;font-family:var(--ui);margin-bottom:4px}
 .chk{display:flex;align-items:center;gap:6px;margin:4px 0}
 .hint{color:var(--muted);font-size:12px;margin:6px 0}
-.view{position:relative;background:var(--canvas);min-height:420px}
-#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.view{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:440px;background:var(--canvas)}
+.pane{position:relative;min-height:440px}.pane3d{border-left:1px solid var(--line)}
+@media (max-width:900px){.view{grid-template-columns:1fr}.pane3d{border-left:0;border-top:1px solid var(--line)}}
+#cv,#cv3{position:absolute;inset:0;width:100%;height:100%;display:block}#cv3{cursor:grab;touch-action:none}#cv3.drag{cursor:grabbing}
+.ptitle{position:absolute;left:12px;top:10px;font:600 11px var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);pointer-events:none}
+.ctl3{position:absolute;left:10px;bottom:8px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:12px;background:color-mix(in srgb,var(--canvas) 85%,transparent);padding:4px 8px;border-radius:6px}
+.ctl3 label{display:flex;align-items:center;gap:4px}.ctl3 .hint{margin:0}
 #tip{position:absolute;pointer-events:none;background:rgba(17,24,39,.9);color:#fff;font:12px/1.35 var(--mono);padding:5px 8px;border-radius:6px;display:none;white-space:nowrap}
 .legend{position:absolute;left:12px;bottom:10px;font:11px var(--mono);color:var(--muted);background:color-mix(in srgb,var(--canvas) 85%,transparent);padding:4px 6px;border-radius:5px}
 .status{position:absolute;right:12px;top:10px;font:12px var(--mono);color:var(--muted)}
@@ -92,7 +99,12 @@ code{font-family:var(--mono);font-size:12px}
       <button class="btn" id="sweep" title="Inductance en fonction du courant (saturation du fer)">Courbe L(I)</button>
     </div>
   </aside>
-  <section class="view" aria-label="Carte du champ magnétique"><canvas id="cv"></canvas><div id="tip"></div><div class="legend" id="legend"></div><div class="status" id="status"></div></section>
+  <section class="view">
+    <div class="pane" aria-label="Coupe : carte du champ magnétique"><canvas id="cv"></canvas><div class="ptitle">Coupe (r, z)</div><div id="tip"></div><div class="legend" id="legend"></div><div class="status" id="status"></div></div>
+    <div class="pane pane3d" aria-label="Vue 3D du composant"><canvas id="cv3"></canvas><div class="ptitle">Vue 3D</div>
+      <div class="ctl3"><label><input type="checkbox" id="cut3" checked>Coupe ¼</label><label><input type="checkbox" id="field3" checked>|B| sur la coupe</label>
+        <button class="btn" id="reset3" style="padding:2px 8px">Vue initiale</button><span class="hint">Glisser : tourner · molette : zoom</span></div></div>
+  </section>
   <aside class="res">
     <h3>Inductance (éléments finis)</h3>
     <div class="big" id="Lval">—</div>
@@ -145,7 +157,7 @@ function run(){const p=params(),bad=check(p);if(bad){$('status').textContent=bad
   $('status').textContent='Calcul…';
   setTimeout(()=>{try{R=FEM.solve(p);R.ana=FEM.analytic(p,R.regs);
       if(p.core==='noyau'){const pa={...p,core:'air'};R.Lair=FEM.solve(pa).L}
-      show();draw()}catch(err){$('status').textContent='Erreur : '+err.message}},20)}
+      show();draw();build3D();draw3D()}catch(err){$('status').textContent='Erreur : '+err.message}},20)}
 
 function show(){const p=R.p,L=R.L;$('Lval').textContent=fmtSI(L,'H');
   let h='';const pct=(a,b)=>{const d=(a/b-1)*100;return (d>=0?'+':'')+d.toFixed(1)+' %'};
@@ -173,16 +185,16 @@ function css(v){return getComputedStyle(document.documentElement).getPropertyVal
 function draw(){if(!R)return;const dpr=devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0);
   cx.fillStyle=css('--canvas');cx.fillRect(0,0,W,H);
   const regs=R.regs,m=R.m,p=R.p;let rmax=p.re,zmax=p.h/2;for(const g of regs){rmax=Math.max(rmax,g.r1);zmax=Math.max(zmax,g.z1)}
-  const rv=rmax*1.7,zv=Math.max(zmax*1.7,rv*0.55);const s=Math.min((W-40)/(2*rv),(H-50)/(2*zv)),ox=W/2,oy=H/2;VIEW={s,ox,oy,rv,zv};
+  const rv=rmax*1.7,zv=Math.max(zmax*1.7,rv*0.55);const s=Math.min((W-40)/(2*rv),(H-50)/(2*zv)),ox=W/2,oy=H/2;const rvis=W/2/s,zvis=H/2/s;VIEW={s,ox,oy,rv:rvis,zv:zvis};
   const X=(r,sg)=>ox+sg*r*1000*s, Y=(z,sz)=>oy-sz*z*1000*s;
   const ne=R.G.ne,tri=m.tri,x=m.x,y=m.y,Bm=R.B.Bm;
   // échelle : 99e centile de |B| dans la vue
   const vals=[];for(let e=0;e<ne;e++){if(R.G.rc[e]*1000<rv&&y[tri[3*e]]*1000<zv)vals.push(Bm[e])}vals.sort((a,b)=>a-b);
   const Bsc=vals[Math.floor(vals.length*0.99)]||1;VIEW.Bsc=Bsc;
   const quads=[[1,1],[-1,1],[1,-1],[-1,-1]];
-  if($('showB').checked){for(let e=0;e<ne;e++){const a=tri[3*e],b=tri[3*e+1],c=tri[3*e+2];if(x[a]*1000>rv*1.05&&x[b]*1000>rv*1.05)continue;if(y[a]*1000>zv*1.05&&y[c]*1000>zv*1.05)continue;
+  if($('showB').checked){for(let e=0;e<ne;e++){const a=tri[3*e],b=tri[3*e+1],c=tri[3*e+2];if(x[a]*1000>VIEW.rv*1.05&&x[b]*1000>VIEW.rv*1.05)continue;if(y[a]*1000>VIEW.zv*1.05&&y[c]*1000>VIEW.zv*1.05)continue;
       cx.fillStyle=cmap(Bm[e]/Bsc);for(const [sr,sz] of quads){cx.beginPath();cx.moveTo(X(x[a],sr),Y(y[a],sz));cx.lineTo(X(x[b],sr),Y(y[b],sz));cx.lineTo(X(x[c],sr),Y(y[c],sz));cx.closePath();cx.fill();cx.strokeStyle=cx.fillStyle;cx.lineWidth=.6;cx.stroke()}}}
-  if($('showMesh').checked){cx.strokeStyle='rgba(120,130,140,.35)';cx.lineWidth=.5;cx.beginPath();for(let e=0;e<ne;e++){const a=tri[3*e],b=tri[3*e+1],c=tri[3*e+2];if(x[a]*1000>rv*1.05||y[a]*1000>zv*1.05)continue;
+  if($('showMesh').checked){cx.strokeStyle='rgba(120,130,140,.35)';cx.lineWidth=.5;cx.beginPath();for(let e=0;e<ne;e++){const a=tri[3*e],b=tri[3*e+1],c=tri[3*e+2];if(x[a]*1000>VIEW.rv*1.05||y[a]*1000>VIEW.zv*1.05)continue;
       for(const [sr,sz] of quads){cx.moveTo(X(x[a],sr),Y(y[a],sz));cx.lineTo(X(x[b],sr),Y(y[b],sz));cx.lineTo(X(x[c],sr),Y(y[c],sz));cx.lineTo(X(x[a],sr),Y(y[a],sz))}}cx.stroke()}
   // contours des régions
   for(const g of regs){const col=g.mat==='coil'?css('--coil'):css('--iron');cx.lineWidth=g.mat==='coil'?2:1.6;cx.strokeStyle=col;
@@ -193,7 +205,7 @@ function draw(){if(!R)return;const dpr=devicePixelRatio||1,W=cv.clientWidth,H=cv
     if(!$('showB').checked&&g.mat==='iron'){cx.fillStyle='rgba(120,130,140,.25)';for(const [sr,sz] of quads){const x0=X(g.r0/1000,sr),x1=X(g.r1/1000,sr),y0=Y(g.z0/1000,sz),y1=Y(g.z1/1000,sz);cx.fillRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0))}}}
   // lignes de flux (ψ = cste)
   if($('showFlux').checked){let pmax=0;for(let i=0;i<m.nn;i++)pmax=Math.max(pmax,Math.abs(R.psi[i]));const nl=16;cx.strokeStyle=$('showB').checked?'rgba(255,255,255,.85)':css('--fg');cx.lineWidth=1;cx.beginPath();
-    for(let e=0;e<ne;e++){const n=[tri[3*e],tri[3*e+1],tri[3*e+2]];if(x[n[0]]*1000>rv*1.1||y[n[0]]*1000>zv*1.1)continue;const v=n.map(i=>R.psi[i]);
+    for(let e=0;e<ne;e++){const n=[tri[3*e],tri[3*e+1],tri[3*e+2]];if(x[n[0]]*1000>VIEW.rv*1.1||y[n[0]]*1000>VIEW.zv*1.1)continue;const v=n.map(i=>R.psi[i]);
       const lo=Math.min(...v),hi=Math.max(...v);for(let k=1;k<=nl;k++){const lv=pmax*(k-.5)/nl;if(lv<lo||lv>hi)continue;const pts=[];
         for(let q=0;q<3;q++){const i=q,j=(q+1)%3;if((v[i]-lv)*(v[j]-lv)<0||(v[i]===lv&&v[j]!==lv)){const t=(lv-v[i])/(v[j]-v[i]);pts.push([x[n[i]]+t*(x[n[j]]-x[n[i]]),y[n[i]]+t*(y[n[j]]-y[n[i]])])}}
         if(pts.length>=2)for(const [sr,sz] of quads){cx.moveTo(X(pts[0][0],sr),Y(pts[0][1],sz));cx.lineTo(X(pts[1][0],sr),Y(pts[1][1],sz))}}}cx.stroke()}
@@ -248,7 +260,54 @@ $('ex').onchange=()=>loadExample($('ex').value);$('run').onclick=()=>{sweepData=
 for(const id of ['showB','showFlux','showMesh'])$(id).onchange=draw;
 for(const id of ['N','I','ri','re','h','rn','hn','gap','mur'])$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){sweepData=null;run()}});
 $('mat').onchange=$('ds').onchange=()=>{sweepData=null;run()};
-addEventListener('resize',()=>{draw();drawChart()});
+addEventListener('resize',()=>{draw();drawChart();draw3D()});
+/* ---------- vue 3D (volumes de révolution, algorithme du peintre) ---------- */
+const cv3=$('cv3'),c3=cv3.getContext('2d');
+const V3={yaw:-2.35,pitch:0.42,zoom:1,polys:[]};
+function hexRGB(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16))}
+function build3D(){if(!R)return;const P=[],NS=64,cut=$('cut3').checked,t0=cut?Math.PI/2:0,t1=2*Math.PI,ns=cut?Math.round(NS*0.75):NS;
+  const coilC=[214,134,52],ironC=[176,184,194];
+  const th=k=>t0+(t1-t0)*k/ns, pt=(r,t,z)=>[r*Math.cos(t),r*Math.sin(t),z];
+  const add=(pts,n,col,kind)=>P.push({pts,n,col,kind});
+  for(const g of R.regs){const col=g.mat==='coil'?coilC:ironC;const zr=g.z0===0?[[-g.z1,g.z1]]:[[g.z0,g.z1],[-g.z1,-g.z0]];
+    for(const [za,zb] of zr){for(let k=0;k<ns;k++){const a=th(k),b=th(k+1),m=(a+b)/2;
+        add([pt(g.r1,a,za),pt(g.r1,b,za),pt(g.r1,b,zb),pt(g.r1,a,zb)],[Math.cos(m),Math.sin(m),0],col);
+        if(g.r0>0)add([pt(g.r0,a,za),pt(g.r0,b,za),pt(g.r0,b,zb),pt(g.r0,a,zb)],[-Math.cos(m),-Math.sin(m),0],col);
+        for(const [z,nz] of [[zb,1],[za,-1]]){if(g.r0>0)add([pt(g.r0,a,z),pt(g.r1,a,z),pt(g.r1,b,z),pt(g.r0,b,z)],[0,0,nz],col);
+          else add([pt(0,a,z),pt(g.r1,a,z),pt(g.r1,b,z)],[0,0,nz],col)}}
+      if(cut&&!$('field3').checked)for(const [t,sg] of [[t0,-1],[t1,1]]){const n=[-Math.sin(t)*sg,Math.cos(t)*sg,0];
+        add([pt(g.r0,t,za),pt(g.r1,t,za),pt(g.r1,t,zb),pt(g.r0,t,zb)],n,col,'cut')}}}
+  // carte de |B| sur les faces coupées (éléments du maillage situés dans les pièces)
+  if(cut&&$('field3').checked){const m=R.m,Bsc=(VIEW&&VIEW.Bsc)||1;for(let e=0;e<R.G.ne;e++){if(m.reg[e]<0)continue;const tri=[m.tri[3*e],m.tri[3*e+1],m.tri[3*e+2]];
+      const col=cmap(R.B.Bm[e]/Bsc).match(/\d+/g).map(Number);
+      for(const [t,sg] of [[t0,-1],[t1,1]])for(const sz of [1,-1]){const n=[-Math.sin(t)*sg,Math.cos(t)*sg,0];
+        add(tri.map(i=>pt(m.x[i]*1000,t,sz*m.y[i]*1000)),n,col,'field')}}}
+  V3.polys=P;let ext=0;for(const g of R.regs)ext=Math.max(ext,g.r1,g.z1);V3.ext=ext}
+function draw3D(){const dpr=devicePixelRatio||1,W=cv3.clientWidth,H=cv3.clientHeight;if(!W||!H)return;cv3.width=W*dpr;cv3.height=H*dpr;c3.setTransform(dpr,0,0,dpr,0,0);
+  c3.fillStyle=css('--canvas');c3.fillRect(0,0,W,H);if(!V3.polys.length)return;
+  const cy=Math.cos(V3.yaw),sy=Math.sin(V3.yaw),cp=Math.cos(V3.pitch),sp=Math.sin(V3.pitch);
+  const rot=([x,y,z])=>{const x1=x*cy-y*sy,y1=x*sy+y*cy;return [x1,y1*cp-z*sp,y1*sp+z*cp]};  // [écran x, profondeur, écran y]
+  const s=Math.min(W,H)/(2.6*V3.ext)*V3.zoom,ox=W/2,oy=H/2+6,D=V3.ext*8;
+  const proj=([x,d,z])=>{const f=D/(D+d);return [ox+x*s*f,oy-z*s*f]};
+  const L=(()=>{const l=[-0.45,-0.75,0.5],n=Math.hypot(...l);return l.map(v=>v/n)})();
+  const list=[];for(const q of V3.polys){const n=rot(q.n);if(n[1]>1e-6&&q.kind!=='field')continue;if(q.kind==='field'&&n[1]>1e-6)continue;
+    const r=q.pts.map(rot);let d=0;for(const v of r)d+=v[1];d/=r.length;if(q.kind==='field')d-=0.03*V3.ext;
+    const lam=Math.max(0,n[0]*L[0]+n[1]*L[1]+n[2]*L[2]),k=q.kind==='field'?0.8+0.2*lam:0.5+0.55*lam;
+    list.push({d,pts:r.map(proj),c:`rgb(${q.col.map(v=>Math.round(Math.min(255,v*k))).join(',')})`})}
+  list.sort((a,b)=>b.d-a.d);
+  for(const q of list){c3.beginPath();q.pts.forEach((p,i)=>i?c3.lineTo(p[0],p[1]):c3.moveTo(p[0],p[1]));c3.closePath();c3.fillStyle=q.c;c3.fill();c3.strokeStyle=q.c;c3.lineWidth=.7;c3.stroke()}
+  // axe de révolution
+  const a=proj(rot([0,0,-V3.ext*1.25])),b=proj(rot([0,0,V3.ext*1.25]));c3.setLineDash([6,4]);c3.strokeStyle=css('--muted');c3.lineWidth=1;c3.beginPath();c3.moveTo(a[0],a[1]);c3.lineTo(b[0],b[1]);c3.stroke();c3.setLineDash([]);
+  c3.fillStyle=css('--muted');c3.font='11px '+css('--mono');c3.fillText('z',b[0]+5,b[1]);
+  const lg=[['Bobine (cuivre)','rgb(214,134,52)']];if(R.isIron.some(v=>v))lg.push(['Fer','rgb(176,184,194)']);
+  c3.textAlign='right';c3.font='12px '+css('--ui');lg.forEach(([t,c],i)=>{const w=c3.measureText(t).width;c3.fillStyle=c;c3.fillRect(W-16-w-16,10+i*17,11,11);c3.fillStyle=css('--fg');c3.fillText(t,W-12,20+i*17)});c3.textAlign='left'}
+(()=>{let drag=null;cv3.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,yaw:V3.yaw,pitch:V3.pitch};cv3.setPointerCapture(e.pointerId);cv3.classList.add('drag')});
+  cv3.addEventListener('pointermove',e=>{if(!drag)return;V3.yaw=drag.yaw-(e.clientX-drag.x)*0.01;V3.pitch=Math.max(-1.5,Math.min(1.5,drag.pitch+(e.clientY-drag.y)*0.01));draw3D()});
+  const end=()=>{drag=null;cv3.classList.remove('drag')};cv3.addEventListener('pointerup',end);cv3.addEventListener('pointercancel',end);
+  cv3.addEventListener('wheel',e=>{e.preventDefault();V3.zoom=Math.max(0.4,Math.min(4,V3.zoom*Math.exp(-e.deltaY*0.0015)));draw3D()},{passive:false});
+  const reset=()=>{V3.yaw=-2.35;V3.pitch=0.42;V3.zoom=1;draw3D()};cv3.addEventListener('dblclick',reset);$('reset3').onclick=reset;
+  $('cut3').onchange=$('field3').onchange=()=>{build3D();draw3D()};})();
+
 const q=new URL(location.href).searchParams.get('ex');if(q&&EX[q])$('ex').value=q;loadExample($('ex').value);
 </script>
 </body></html>
