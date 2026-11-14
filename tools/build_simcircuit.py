@@ -82,6 +82,7 @@ def main():
     (DST / "index.html").write_text(construit_index(), encoding="utf-8")
     (DST / "magnetique.html").write_text(construit_magnetique(), encoding="utf-8")
     shutil.copy2(ROOT / "fem-axi.js", DST / "fem-axi.js")
+    shutil.copy2(ROOT / "mec-axi.js", DST / "mec-axi.js")
 
     sw = (ROOT / "service-worker.js").read_text(encoding="utf-8")
     sw = sw.replace("commutation-shell-", "simcircuit-shell-")
