@@ -20,9 +20,11 @@ DST = ROOT / "SimCircuit"
 EXEMPLES = ["rl", "rc", "rle", "robot", "mcc"]
 FICHIERS_EXEMPLES = ["circuit-RL.json", "circuit-RC.json", "circuit-RLE.json", "robot-demarrage.json", "machine-courant-continu.json"]
 NAV_CIR = ('<nav class="apptabs radio" aria-label="Mode"><a class="on" href="index.html" aria-current="page" title="Simulation de circuits">SimCir</a>'
-           '<a href="magnetique.html" title="Calcul par éléments finis (inductances)">SimEF</a></nav>')
+           '<a href="magnetique.html" title="Calcul d’inductance par éléments finis">SimEF</a>'
+           '<a href="magnetique.html?mode=mec" title="Calcul d’inductance par réseau de réluctances (Magnetic Equivalent Circuit)">SimMEC</a></nav>')
 NAV_EF = ('<nav class="apptabs radio" aria-label="Mode"><a href="index.html" title="Simulation de circuits">SimCir</a>'
-          '<a class="on" href="magnetique.html" aria-current="page" title="Calcul par éléments finis (inductances)">SimEF</a></nav>')
+          '<a class="on" href="magnetique.html" data-mode="ef" title="Calcul d’inductance par éléments finis">SimEF</a>'
+          '<a href="magnetique.html?mode=mec" data-mode="mec" title="Calcul d’inductance par réseau de réluctances (Magnetic Equivalent Circuit)">SimMEC</a></nav>')
 ICONES = ["apple-touch-icon.png", "favicon-32.png", "favicon.ico", "icon-192.png", "icon-512.png"]
 
 
@@ -113,13 +115,14 @@ def main():
         f"| Démarrage d’un robot (analogie RL) | {base}?ex=robot |",
         f"| Machine à courant continu | {base}?ex=mcc |",
         "",
-        "Mode **SimEF** (sélecteur en haut à gauche) : calcul d’inductance par éléments finis, avec vue 3D.",
+        "Modes **SimEF** (éléments finis, avec vue 3D) et **SimMEC** (réseau de réluctances maillé, Magnetic Equivalent Circuit) : sélecteur en haut à gauche.",
         "",
         "| Exemple SimEF | Lien |",
         "|---|---|",
         f"| Bobine dans l’air | {base}magnetique.html?ex=air |",
         f"| Bobine avec noyau plongeur en fer | {base}magnetique.html?ex=noyau |",
         f"| Bobine dans un pot en fer avec entrefer | {base}magnetique.html?ex=pot |",
+        f"| SimMEC · pot avec entrefer | {base}magnetique.html?mode=mec&ex=pot |",
         "",
     ]
     (DST / "README.md").write_text("\n".join(lignes), encoding="utf-8")
