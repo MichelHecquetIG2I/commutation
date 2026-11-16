@@ -6,7 +6,7 @@ puis lancer `python3 tools/build_simcircuit.py`.
 
 | Exemple | Lien |
 |---|---|
-| Circuit RL | https://michelhecquetig2i.github.io/commutation/SimCircuit/?ex=rl |
+| Circuit RL (E = 20 V, R = 5 Ω, L = 1 H) | https://michelhecquetig2i.github.io/commutation/SimCircuit/?ex=rl |
 | Circuit RC | https://michelhecquetig2i.github.io/commutation/SimCircuit/?ex=rc |
 | Circuit R-L-E (fcém) | https://michelhecquetig2i.github.io/commutation/SimCircuit/?ex=rle |
 | Démarrage d’un robot (analogie RL) | https://michelhecquetig2i.github.io/commutation/SimCircuit/?ex=robot |

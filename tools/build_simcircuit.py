@@ -25,6 +25,12 @@ NAV_CIR = ('<nav class="apptabs radio" aria-label="Mode"><a class="on" href="ind
 NAV_EF = ('<nav class="apptabs radio" aria-label="Mode"><a href="index.html" title="Simulation de circuits">SimCir</a>'
           '<a class="on" href="magnetique.html" data-mode="ef" title="Calcul d’inductance par éléments finis">SimEF</a>'
           '<a href="magnetique.html?mode=mec" data-mode="mec" title="Calcul d’inductance par réseau de réluctances (Magnetic Equivalent Circuit)">SimMEC</a></nav>')
+RL_ELEVES = """ rl(){const b=new Builder();
+  /* Version élèves : E = 20 V, R = 5 Ω, L = 1 H → τ = L/R = 0,2 s, I∞ = E/R = 4 A.
+     Pas de courbes de puissance ni d'énergie : à construire par les élèves (Courbe calculée : A × B, puis ∫A dt). */
+  b.add('Vdc',6,12,1,{V:20},'E');b.add('R',10,10,0,{R:5},'R');b.add('L',16,12,1,{L:1},'L');b.add('gnd',6,14,0,{},'GND');
+  b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
+  return b.out({title:'Circuit RL (E = 20 V, R = 5 Ω, L = 1 H)',tstop:1.2,dt:1e-3,probes:[['L','i'],['L','v'],['R','v']]})},"""
 ICONES = ["apple-touch-icon.png", "favicon-32.png", "favicon.ico", "icon-192.png", "icon-512.png"]
 
 
@@ -56,6 +62,11 @@ def construit_index():
     # Lien ?ex= : refuser les exemples absents de SimCircuit
     s = remplace(s, "return Object.prototype.hasOwnProperty.call(PRESETS,ex)?ex:null",
                  "return " + json.dumps(EXEMPLES) + ".includes(ex)?ex:null", 1)
+    # Exemple RL propre à SimCircuit (version élèves) : autres valeurs, sans les courbes de puissance et d'énergie,
+    # que les élèves doivent construire eux-mêmes (panneau « Courbe calculée »).
+    s, n = re.subn(r" rl\(\)\{const b=new Builder\(\);.*?scopes:\[\[0,1,2\],\[4,6\]\]\}\)\},", RL_ELEVES, s, count=1, flags=re.S)
+    if n != 1:
+        raise SystemExit("Exemple RL introuvable dans index.html.")
     # Exemple chargé au premier lancement
     s = remplace(s, "else loadPreset('buck');", "else loadPreset('rl');", 1)
     # Stockage local et nom de fichier propres à SimCircuit (même domaine que Commutation)
@@ -97,7 +108,8 @@ def main():
     for f in ICONES:
         shutil.copy2(ROOT / f, DST / f)
     for f in FICHIERS_EXEMPLES:
-        shutil.copy2(ROOT / "exemples" / f, DST / "exemples" / f)
+        src = ROOT / "tools" / "simcircuit" / f
+        shutil.copy2(src if src.exists() else ROOT / "exemples" / f, DST / "exemples" / f)
 
     base = "https://michelhecquetig2i.github.io/commutation/SimCircuit/"
     lignes = [
@@ -109,7 +121,7 @@ def main():
         "",
         "| Exemple | Lien |",
         "|---|---|",
-        f"| Circuit RL | {base}?ex=rl |",
+        f"| Circuit RL (E = 20 V, R = 5 Ω, L = 1 H) | {base}?ex=rl |",
         f"| Circuit RC | {base}?ex=rc |",
         f"| Circuit R-L-E (fcém) | {base}?ex=rle |",
         f"| Démarrage d’un robot (analogie RL) | {base}?ex=robot |",

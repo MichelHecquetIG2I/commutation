@@ -445,12 +445,11 @@ Builder.prototype.out=function(extra){
   return{comps:this.comps,wires:this.wires,tstop:extra.tstop,probes:extra.probes.map(([n,k,sh])=>({comp:by(n),kind:k,show:sh!==false})),math:extra.math||[],scopes:extra.scopes||null,title:extra.title,dt:extra.dt}};
 const PRESETS={
  rl(){const b=new Builder();
-  b.add('Vdc',6,12,1,{V:10},'E');b.add('R',10,10,0,{R:10},'R');b.add('L',16,12,1,{L:100e-3},'L');b.add('gnd',6,14,0,{},'GND');
+  /* Version élèves : E = 20 V, R = 5 Ω, L = 1 H → τ = L/R = 0,2 s, I∞ = E/R = 4 A.
+     Pas de courbes de puissance ni d'énergie : à construire par les élèves (Courbe calculée : A × B, puis ∫A dt). */
+  b.add('Vdc',6,12,1,{V:20},'E');b.add('R',10,10,0,{R:5},'R');b.add('L',16,12,1,{L:1},'L');b.add('gnd',6,14,0,{},'GND');
   b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
-  /* Oscilloscope 2 : Pr = vR·iR = R·i² (puissance dissipée dans R) ; El = ∫vL·iL dt = ½·L·i² (énergie stockée dans L). */
-  return b.out({title:'Circuit RL (τ = L/R = 10 ms)',tstop:60e-3,dt:50e-6,probes:[['L','i'],['L','v'],['R','v'],['R','i',false]],
-    math:[{op:'mul',a:2,b:3,name:'Pr : puissance dissipée dans la résistance'},{op:'mul',a:1,b:0},{op:'int',a:5,name:'El : énergie stockée dans l’inductance'}],
-    scopes:[[0,1,2],[4,6]]})},
+  return b.out({title:'Circuit RL (E = 20 V, R = 5 Ω, L = 1 H)',tstop:1.2,dt:1e-3,probes:[['L','i'],['L','v'],['R','v']]})},
  rc(){const b=new Builder();
   b.add('Vdc',6,12,1,{V:10},'E');b.add('R',10,10,0,{R:1000},'R');b.add('C',16,12,1,{C:10e-6},'C');b.add('gnd',6,14,0,{},'GND');
   b.wire(6,10,8,10);b.wire(12,10,16,10);b.wire(6,14,16,14);
