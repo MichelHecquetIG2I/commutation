@@ -105,6 +105,7 @@ fait perdre 29 % (air) à 48 % (noyau) sur L.
 - Réponses énergétiques : W, énergie dans l’entrefer Wg, part Wg/W, W / masse de fer.
 - NSGA-II : **N toujours entier** (unité « spires », pas réglable 1, 2, 3… spires) et option cotes discrètes (pas en mm), avantage propre aux algorithmes génétiques ;
   **évolution de la bobine le long du front** (géométries à la même échelle, curseur, carte de |B| du point choisi).
+- **Logigrammes** dans chaque onglet (actions, équations, nombre de calculs par étape, boucles) et tableau « paramétrique ou topologique ? ».
 - **Méthode 4 — optimisation topologique ON/OFF** (`tools/simef/topo.js`), en EF ou en réseau de réluctances maillé :
   départ d’un optimum paramétrique (méthode 1, 2 ou 3) projeté sur une grille de cellules fer/air, sensibilité B²
   (à courant imposé, dW/dν = −½∫B²dV, problème auto-adjoint), filtrage, mise à jour BESO avec retour arrière,

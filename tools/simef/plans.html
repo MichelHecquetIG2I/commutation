@@ -61,6 +61,7 @@ canvas.big{height:380px}
 .mtabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:3px;margin-bottom:8px}
 .mtabs label{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:5px;cursor:pointer;font-weight:500;color:var(--muted)}
 .mtabs label:has(input:checked){background:var(--panel2);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+details.flow{margin:6px 0 10px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--canvas)}details.flow summary{cursor:pointer;font-weight:600;font-size:13px;margin:2px 0 6px}
 ol.steps{margin:4px 0 8px;padding-left:20px;font-size:12.5px}ol.steps li{margin:2px 0}
 .cmp{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:10px;background:var(--panel);font-size:12.5px}
 .ok{color:var(--good)}.ko{color:var(--bad)}.wa{color:var(--warn)}
@@ -147,18 +148,13 @@ code{font-family:var(--mono);font-size:12px}
 
     <div class="mpane" id="pane-doe">
       <p class="hint">Démarche : les essais du plan ont été simulés et un modèle (surface de réponse) a été ajusté sur chaque réponse. L’optimisation porte sur ce modèle — instantanée — puis on vérifie le point trouvé par une simulation. Recherche : 6 000 points aléatoires puis recherche par motifs (compass search) depuis les 6 meilleurs ; contrainte par rejet.</p>
+      <details class="flow" open><summary>Logigramme de la démarche (actions, équations, nombre de calculs)</summary><div id="flow-doe"></div></details>
       <div style="display:flex;gap:6px"><button class="btn primary" id="optim" disabled>Optimiser sur le modèle</button><button class="btn" id="verify" disabled>Vérifier par simulation</button></div>
       <div id="optRes" style="margin-top:8px"></div>
     </div>
 
     <div class="mpane" id="pane-sqp" style="display:none">
-      <ol class="steps">
-        <li><b>Point de départ</b> x₀ (variables codées) : une simulation donne f(x₀) et c(x₀).</li>
-        <li><b>Gradients</b> ∇f et ∇c par différences finies : k simulations (avant) ou 2k (centrées), pas h en variables codées.</li>
-        <li><b>Hessien</b> du lagrangien approché par la formule <b>BFGS</b> amortie (Powell), mise à jour à chaque itération à partir des variations de gradient.</li>
-        <li><b>Sous-problème quadratique</b> : min ½dᵀBd + ∇fᵀd sous c + ∇cᵀd ≤ 0 et les bornes → direction d et multiplicateur µ.</li>
-        <li><b>Recherche linéaire</b> sur la fonction de mérite φ = f + ρ·max(0, c) : on accepte x + t·d (t = 1, ½, ¼…) si φ diminue.</li>
-        <li><b>Arrêt</b> quand le pas devient très petit avec la contrainte respectée. Coût total : chaque itération ≈ k + 1 à 2k + 2 simulations.</li></ol>
+      <details class="flow" open><summary>Logigramme de la démarche (actions, équations, nombre de calculs)</summary><div id="flow-sqp"></div></details>
       <div class="ctl"><label>Départ <select class="v" id="sqpX0" style="width:auto"><option value="center">centre du domaine</option><option value="best">meilleur essai admissible du plan</option><option value="opt">optimum du modèle (méthode 1)</option></select></label>
         <label>Gradients <select class="v" id="sqpFD" style="width:auto"><option value="fwd">différences avant</option><option value="cen">différences centrées</option></select></label>
         <label>pas h <input class="v" id="sqpH" style="width:70px" value="0.03"></label><label>itérations max <input class="v" id="sqpIt" style="width:60px" value="12"></label></div>
@@ -170,6 +166,7 @@ code{font-family:var(--mono);font-size:12px}
 
     <div class="mpane" id="pane-nsga" style="display:none">
       <p class="hint">Démarche NSGA-II (Deb, 2002) : une population de géométries évolue sur plusieurs générations (sélection par tournoi, croisement SBX, mutation polynomiale). Le classement se fait par fronts de non-domination et par distance de surpeuplement, ce qui répartit les solutions le long du <b>front de Pareto</b> : aucun point du front ne peut améliorer un objectif sans dégrader l’autre. Les géométries qui violent la contrainte sont dominées par toutes les géométries admissibles.</p>
+      <details class="flow" open><summary>Logigramme de la démarche (actions, équations, nombre de calculs)</summary><div id="flow-nsga"></div></details>
       <div class="ctl"><label>Évaluation <select class="v" id="nsEval" style="width:auto"><option value="model">sur le modèle du plan (instantané)</option><option value="direct">directe par le solveur (EF / MEC)</option></select></label>
         <label>population <input class="v" id="nsPop" style="width:60px" value="40"></label><label>générations <input class="v" id="nsGen" style="width:60px" value="30"></label><span class="hint" id="nsCost"></span></div>
       <div class="ctl"><label>Nombre de spires N : entier, par pas de <input class="v" id="nsStepN" style="width:50px" value="1"> spire(s)</label>
@@ -186,13 +183,8 @@ code{font-family:var(--mono);font-size:12px}
 
     <div class="mpane" id="pane-topo" style="display:none">
       <p class="hint">On part d’une géométrie déjà optimisée paramétriquement (méthode 1, 2 ou 3) et on laisse l’algorithme placer librement le fer, cellule par cellule, dans l’encombrement du pot. Objectif : à courant imposé, conserver l’énergie emmagasinée W en retirant le fer inutile (ou en le déplaçant là où il sert).</p>
-      <ol class="steps">
-        <li><b>Projection</b> de la géométrie de départ sur une grille de cellules (≈ 1 mm) : chaque cellule est du fer (ON) ou de l’air (OFF). La bobine et l’entrefer restent hors de l’espace de conception ; symétrie par rapport au plan médian.</li>
-        <li><b>Calcul du champ</b> à courant imposé : éléments finis ou réseau de réluctances maillé (MEC).</li>
-        <li><b>Sensibilité</b> : à courant imposé, dW/dν = −½·∫B² dV. Basculer une cellule fer ↔ air change W d’environ ½·ν0·B²·V ; rapportée à la masse de la cellule, la sensibilité vaut <b>B²</b>. Le problème est auto-adjoint : l’état sert de variable adjointe, aucun calcul supplémentaire.</li>
-        <li><b>Filtrage</b> spatial (rayon 1,5 cellule) et moyenne sur deux itérations, pour éviter les damiers et les oscillations.</li>
-        <li><b>Mise à jour ON/OFF</b> (type BESO) : la masse cible diminue de ER par itération ; on garde les cellules de plus forte sensibilité ; au plus 2 % de cellules ajoutées par itération. Les variables restent binaires.</li>
-        <li><b>Arrêt</b> : masse cible atteinte et W stable, ou W passerait sous W<sub>min</sub>, ou l’induction du fer dépasserait B<sub>max</sub> (saturation).</li></ol>
+      <details class="flow" open><summary>Paramétrique ou topologique ? (à ne pas confondre)</summary><div id="flow-cmp"></div></details>
+      <details class="flow" open><summary>Logigramme de la démarche (actions, équations, nombre de calculs)</summary><div id="flow-topo"></div></details>
       <p class="hint">Même esprit que la thèse de V. Martin (L2EP, chap. 4) : réseau de réluctances maillé, maximisation de L à volume contraint. La thèse utilise des densités continues, une pénalisation et la méthode adjointe ; ici, variables binaires et linéarisation ON/OFF à changements limités (algorithme de R. El Bechari cité au § 4.3.1).</p>
       <div class="ctl"><label>Départ <select class="v" id="tpX0" style="width:auto"><option value="nsga">point choisi sur le front NSGA-II</option><option value="sqp">optimum SQP</option><option value="doe">optimum du plan (méthode 1)</option><option value="fix">valeurs « fixe » des facteurs</option></select></label>
         <label>Grille <select class="v" id="tpNr" style="width:auto"><option value="20">20 cellules en r</option><option value="30" selected>30 cellules en r</option><option value="40">40 cellules en r</option></select></label>
@@ -603,6 +595,79 @@ function drawTopoCurve(){const c=$('tpCurve');if(!c||!c.clientWidth)return;const
   g.textAlign='left';let ly=P.t+14;const leg=(col,t,sq)=>{g.fillStyle=col;if(sq)g.fillRect(P.l+8,ly-8,8,8);else{g.beginPath();g.arc(P.l+12,ly-4,4,0,7);g.fill()}g.fillStyle=css('--fg');g.fillText(t,P.l+22,ly);ly+=15};
   if(ref)leg(css('--fg'),'pot paramétrique de départ (EF exact)',1);for(const o of sets)leg(o.col,'itérations topologiques '+(o.sv==='ef'?'EF':'MEC'));if(fr.length)leg('rgba(140,150,160,.9)','front de Pareto paramétrique (NSGA-II)')}
 
+/* ---------- logigrammes des méthodes (SVG généré) ---------- */
+const FLOWS={
+ doe:{title:'Méthode 1 — plan d’expériences + modèle (optimisation paramétrique sur un méta-modèle)',steps:[
+  {k:'s',t:'Définir le problème',l:['facteurs xⱼ ∈ [minⱼ ; maxⱼ] (g, rn, e, h, N, I), réponses y (L, B, m, W…)','variables codées x̃ⱼ = 2(xⱼ − x₀ⱼ)/Δxⱼ ∈ [−1 ; 1]']},
+  {k:'p',t:'Choisir le plan',l:['criblage 2^k, 2^(k−p), PB ; surface CCF, CCC, BBD, 3^k ; LHS ; D- ou I-optimal (Fedorov)','D-eff = |XᵀX|^(1/p) / n,   VIF = diag((XᵀX)⁻¹)·Σ(xⱼ − x̄ⱼ)²'],sim:'0'},
+  {k:'p',t:'Simuler les n essais',l:['un calcul EF ou MEC par essai → yᵢ, i = 1…n'],sim:'n'},
+  {k:'p',t:'Ajuster un modèle par réponse',l:['ŷ = β₀ + Σ βⱼ xⱼ + Σ βⱼₖ xⱼ xₖ + Σ βⱼⱼ xⱼ²     (option log y)','β = (XᵀX)⁻¹ Xᵀ y'],sim:'0'},
+  {k:'d',t:'Modèle valable ?',l:['R² = 1 − SS_res/SS_tot ;  Q² = 1 − PRESS/SS_tot ≥ 0,7'],loop:{to:1,lab:'non : enrichir le plan, log(y), réduire le domaine'}},
+  {k:'p',t:'Optimiser sur le modèle',l:['max (ou min) ŷ_obj(x) sous ŷ_c(x) ≤ c_lim, x ∈ [−1 ; 1]^k','6 000 tirages aléatoires puis recherche par motifs depuis les 6 meilleurs'],sim:'0'},
+  {k:'d',t:'Vérification par simulation',l:['|ŷ − y_sim| / y_sim ≤ 5 % sur l’objectif et la contrainte ?'],sim:'1',loop:{to:0,lab:'non : resserrer le domaine autour de l’optimum'}},
+  {k:'e',t:'Optimum + modèle réutilisable',l:['coût total : n + 1 simulations (ex. 15 + 1)']}]},
+ sqp:{title:'Méthode 2 — SQP direct sur le solveur (optimisation paramétrique à gradient)',steps:[
+  {k:'s',t:'Formuler',l:['min f(x) = −y_obj(x)/|y_obj(x₀)|   s.c.  c(x) = (y_c(x) − c_lim)/|c_lim| ≤ 0,  x ∈ [−1 ; 1]^k','départ x₀ : centre, meilleur essai du plan ou optimum du modèle ;  B₀ = ‖∇f‖·I']},
+  {k:'p',t:'Calculer f(xₖ), c(xₖ)',l:['un calcul EF ou MEC'],sim:'1'},
+  {k:'p',t:'Gradients par différences finies',l:['∂f/∂xⱼ ≈ [f(x + h eⱼ) − f(x − h eⱼ)] / 2h   (centrées)  ou  [f(x + h eⱼ) − f(x)] / h','pas h = 0,03 en codé, grand devant le bruit de maillage'],sim:'k ou 2k'},
+  {k:'p',t:'Mettre à jour le hessien (BFGS amorti, Powell)',l:['s = xₖ − xₖ₋₁,  y = ∇Lₖ − ∇Lₖ₋₁ (amorti si sᵀy < 0,2 sᵀBs)','Bₖ = Bₖ₋₁ − (B s)(B s)ᵀ / sᵀBs + y yᵀ / sᵀy'],sim:'0'},
+  {k:'p',t:'Sous-problème quadratique (QP)',l:['min ½ dᵀB d + ∇fᵀd   s.c.  c + ∇cᵀd ≤ 0,  −1 ≤ x + d ≤ 1','→ direction d et multiplicateur µ (ensemble actif + dichotomie sur µ)'],sim:'0'},
+  {k:'p',t:'Recherche linéaire',l:['φ(x) = f(x) + ρ·max(0, c(x)),  ρ > µ','x ← x + t·d avec t = 1, ½, ¼… dès que φ diminue'],sim:'1 à 3'},
+  {k:'d',t:'Convergé ?',l:['‖d‖ < 10⁻³ et c ≤ 0   (ou itérations max)'],loop:{to:1,lab:'non'}},
+  {k:'e',t:'Optimum local',l:['coût ≈ (k + 2) à (2k + 3) simulations par itération']}]},
+ nsga:{title:'Méthode 3 — NSGA-II (optimisation paramétrique multi-objectif, sans gradient)',steps:[
+  {k:'s',t:'Population initiale P₀',l:['Nₚ individus x tirés au hasard dans [−1 ; 1]^k','N arrondi à un entier (pas de 1, 2… spires), cotes au pas choisi']},
+  {k:'p',t:'Évaluer chaque individu',l:['f₁ = −W (maximiser l’énergie),  f₂ = m (minimiser la masse de fer)','violation cv = max(0, c) ; sur le modèle (instantané) ou par simulation'],sim:'Nₚ'},
+  {k:'p',t:'Tri non dominé et surpeuplement',l:['a domine b si fᵢ(a) ≤ fᵢ(b) ∀i et < pour au moins un i (admissible d’abord)','rangs F₁, F₂…  ;  distance de surpeuplement cd = Σ (f(i+1) − f(i−1)) / (f_max − f_min)'],sim:'0'},
+  {k:'p',t:'Sélection, croisement, mutation',l:['tournoi binaire (rang, puis cd) ;  croisement SBX (η_c = 15, p = 0,9)','mutation polynomiale (η_m = 20, p_m = 1/k) → Nₚ enfants Q, évalués (modèle ou simulation)'],sim:'Nₚ'},
+  {k:'p',t:'Sélection élitiste',l:['R = P ∪ Q (2Nₚ),  tri non dominé, on garde les Nₚ meilleurs (rang puis cd)'],sim:'0'},
+  {k:'d',t:'Génération g < G_max ?',l:['coût total ≈ Nₚ·(G_max + 1) évaluations'],loop:{to:2,lab:'oui : génération suivante'},yes:'non'},
+  {k:'e',t:'Front de Pareto F₁',l:['choix d’un compromis par le concepteur, vérification par simulation']}]},
+ topo:{title:'Méthode 4 — optimisation topologique ON/OFF (la forme elle-même est la variable)',steps:[
+  {k:'s',t:'Entrée : pot optimisé paramétriquement',l:['optimum SQP, point du front NSGA-II ou optimum du plan (méthodes 1 à 3)']},
+  {k:'p',t:'Discrétiser l’espace de conception Ω_d',l:['grille de n cellules (≈ 1 mm) ;  variable binaire ρᵢ ∈ {0 ; 1} : 1 = fer (ON), 0 = air (OFF)','µᵢ = µ₀·[1 + ρᵢ(µ_r − 1)] ;  bobine et entrefer hors de Ω_d ;  symétrie z → −z'],sim:'0'},
+  {k:'p',t:'Calculer le champ à courant imposé',l:['K(ν(ρ))·a = f   (EF : potentiel vecteur ; MEC : flux de mailles, fer B(H) non linéaire)','W = ∫∫ H dB dV,   m = Σ ρᵢ mᵢ,   B₉₅ du fer'],sim:'1'},
+  {k:'p',t:'Sensibilités (problème auto-adjoint)',l:['à I imposé : dW/dνᵢ = −½ ∫ᵢ B² dV   (l’état a sert de variable adjointe : 0 calcul en plus)','basculer fer ↔ air : |ΔW| ≈ ½ ν₀ Bᵢ² Vᵢ  ⇒  sensibilité par unité de masse  αᵢ = Bᵢ²'],sim:'0'},
+  {k:'p',t:'Filtrer et stabiliser',l:['α′ᵢ = Σⱼ wᵢⱼ αⱼ / Σⱼ wᵢⱼ,   wᵢⱼ = max(0, r_min − dᵢⱼ),  r_min = 1,5 cellule','ᾱᵢ = (α′ᵢ⁽ᵏ⁾ + α′ᵢ⁽ᵏ⁻¹⁾) / 2   (évite damiers et oscillations)'],sim:'0'},
+  {k:'p',t:'Mise à jour ON/OFF (BESO)',l:['masse cible M⁽ᵏ⁺¹⁾ = max(M_cible, (1 − ER)·M⁽ᵏ⁾)','ρᵢ = 1 pour les cellules de plus grand ᾱᵢ jusqu’à M⁽ᵏ⁺¹⁾ ;  ajouts ≤ AR·n'],sim:'0'},
+  {k:'d',t:'Pas acceptable ?',l:['recalcul : W ≥ W_min,  B₉₅ ≤ B_max  et  W/m non dégradé'],sim:'1',loop:{to:5,lab:'non : retour arrière, ER et AR ÷ 2'}},
+  {k:'d',t:'Convergé ?',l:['masse cible atteinte et W stable (5 it.), ou pas devenu trop petit'],loop:{to:3,lab:'non : itération suivante'}},
+  {k:'e',t:'Topologie optimisée',l:['vérification croisée EF ↔ MEC ;  ≈ 10 à 20 calculs au total']}]}};
+function flowSVG(F,id='f'){const mk='ah-'+id;const W=980,bx=16,bw=660,lh=15,pad=8,gap=22,sx=bx+bw+10,loopX0=830;let y=34,boxes=[];
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  for(const s of F.steps){const h=pad*2+18+s.l.length*lh;boxes.push({...s,y,h});y+=h+gap}
+  const H=y+4;let o=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block" role="img" aria-label="${esc(F.title)}" xmlns="http://www.w3.org/2000/svg">
+   <defs><marker id="${mk}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"/></marker></defs>
+   <text x="${bx}" y="18" style="fill:var(--fg);font:600 14px var(--ui)">${esc(F.title)}</text>`;
+  const col={s:['rgba(37,99,235,.14)','var(--accent)'],e:['rgba(22,163,74,.15)','#16a34a'],p:['var(--panel)','var(--line)'],d:['rgba(245,158,11,.16)','#d97706']};
+  boxes.forEach((b,i)=>{const [f,st]=col[b.k],r=b.k==='p'?6:b.k==='d'?2:14,cx=bx+bw/2;
+    if(b.k==='d')o+=`<path d="M${bx+14},${b.y} H${bx+bw-14} L${bx+bw},${b.y+b.h/2} L${bx+bw-14},${b.y+b.h} H${bx+14} L${bx},${b.y+b.h/2} Z" style="fill:${f};stroke:${st};stroke-width:1.4"/>`;
+    else o+=`<rect x="${bx}" y="${b.y}" width="${bw}" height="${b.h}" rx="${r}" style="fill:${f};stroke:${st};stroke-width:1.4"/>`;
+    o+=`<text x="${bx+22}" y="${b.y+pad+13}" style="fill:var(--fg);font:600 13px var(--ui)">${i+1}. ${esc(b.t)}</text>`;
+    b.l.forEach((t,j)=>o+=`<text x="${bx+22}" y="${b.y+pad+13+(j+1)*lh}" style="fill:var(--fg);font:11px var(--mono,monospace)">${esc(t)}</text>`);
+    if(b.sim!==undefined){const z=b.sim==='0',lab=z?'aucun calcul':b.sim+(b.sim==='1'?' calcul':' calculs');o+=`<rect x="${sx}" y="${b.y+b.h/2-11}" width="128" height="22" rx="11" style="fill:${z?'transparent':'rgba(22,163,74,.15)'};stroke:${z?'var(--line)':'#16a34a'}"/><text x="${sx+64}" y="${b.y+b.h/2+4}" text-anchor="middle" style="fill:${z?'var(--muted)':'#15803d'};font:11px var(--mono,monospace)">${z?'':'⚙ '}${esc(lab)}</text>`}
+    if(i<boxes.length-1){o+=`<line x1="${cx}" y1="${b.y+b.h}" x2="${cx}" y2="${boxes[i+1].y-1}" style="stroke:var(--muted);stroke-width:1.4" marker-end="url(#${mk})"/>`;
+      if(b.k==='d')o+=`<text x="${cx+8}" y="${b.y+b.h+14}" style="fill:var(--muted);font:11px var(--ui)">${esc(b.yes||'oui')}</text>`}});
+  let li=0;boxes.forEach((b,i)=>{if(!b.loop)return;const t=boxes[b.loop.to],x=loopX0+li*24,ya=b.y+b.h-7,yb=t.y+7;li++;
+    const xr=bx+bw-(b.k==='d'?5:0);o+=`<path d="M${xr},${ya} H${x} V${yb} H${bx+bw+2}" style="fill:none;stroke:#d97706;stroke-width:1.5;stroke-dasharray:5 3" marker-end="url(#${mk})"/>`;
+    o+=`<text x="${x+6}" y="${(ya+yb)/2}" style="fill:#b45309;font:11px var(--ui)" transform="rotate(90 ${x+6} ${(ya+yb)/2})" text-anchor="middle">${esc(b.loop.lab)}</text>`});
+  return o+'</svg>'}
+function compareSVG(){const rows=[['Variables','k cotes : g, rn, e, h (continues), N (entier), I','n ≈ 500 à 1 000 cellules binaires ρᵢ ∈ {0 ; 1}'],
+  ['Forme','imposée (pot fermé) : seules les dimensions changent','libre dans l’encombrement : le fer est placé cellule par cellule'],
+  ['Gradient','différences finies possibles (k petit)','différences finies impossibles (n + 1 calculs par itération)|→ sensibilité analytique (état = adjoint)'],
+  ['Méthodes ici','plan + modèle, SQP, NSGA-II (méthodes 1 à 3)','ON/OFF linéarisé, BESO (méthode 4)|thèse V. Martin : densités continues + pénalisation + adjoint'],
+  ['Équation clé','x* = argmax y(x),  x ∈ ℝᵏ (ou ℕ pour N)','ρ* = argmax W(ρ) s.c. Σρᵢmᵢ ≤ M,  ρ ∈ {0 ; 1}ⁿ ;  ∂W/∂νᵢ = −½∫B²dV'],
+  ['Coût typique','16 à 1 240 simulations','10 à 20 calculs (une sensibilité par calcul)'],
+  ['Résultat','directement fabricable (usinage, pièces standard)','à interpréter et lisser : fabrication additive ou assemblage']];
+  const W=980,c0=150,c1=(W-c0-20)/2,rh=38;let y=40,o=`<svg viewBox="0 0 ${W} ${40+rows.length*rh+10}" width="100%" style="max-width:${W}px;display:block" role="img" aria-label="Optimisation paramétrique ou topologique" xmlns="http://www.w3.org/2000/svg">
+   <rect x="${c0+10}" y="6" width="${c1-6}" height="28" rx="6" style="fill:rgba(37,99,235,.14);stroke:var(--accent)"/><text x="${c0+10+c1/2}" y="25" text-anchor="middle" style="fill:var(--fg);font:600 13px var(--ui)">Paramétrique (méthodes 1, 2, 3)</text>
+   <rect x="${c0+10+c1}" y="6" width="${c1-6}" height="28" rx="6" style="fill:rgba(245,158,11,.16);stroke:#d97706"/><text x="${c0+10+c1*1.5}" y="25" text-anchor="middle" style="fill:var(--fg);font:600 13px var(--ui)">Topologique (méthode 4)</text>`;
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  rows.forEach(([a,b,c],i)=>{o+=`<rect x="4" y="${y}" width="${W-8}" height="${rh-4}" rx="4" style="fill:${i%2?'transparent':'var(--panel)'}"/>
+    <text x="12" y="${y+rh/2+2}" style="fill:var(--fg);font:600 12px var(--ui)">${esc(a)}</text>
+    ${[b,c].map((t,k)=>{const L=t.split('|');return L.map((u,m)=>`<text x="${c0+16+k*c1}" y="${y+rh/2+2+(m-(L.length-1)/2)*14}" style="fill:var(--fg);font:11.5px var(--ui)">${esc(u)}</text>`).join('')}).join('')}`;y+=rh});
+  return o+'</svg>'}
+function renderFlows(){for(const k of Object.keys(FLOWS)){const el=$('flow-'+k);if(el)el.innerHTML=flowSVG(FLOWS[k],k)}const c=$('flow-cmp');if(c)c.innerHTML=compareSVG()}
 /* ---------- comparaison des plans ---------- */
 function compareDesigns(){const k=active().length;if(k<2||k>6)return;const rows=[];
   for(const t of Object.keys(DNAME)){let D;try{D=makeDesign(t,k,{n:Math.max(+$('nruns').value,DOE.terms(k,'quad').length),model:'quad',fv:0})}catch(e){D=null}if(!D)continue;
@@ -621,6 +686,7 @@ $('resp').onchange=()=>{showStats();drawAll()};$('model').onchange=$('logy').onc
 $('optim').onclick=optimize;$('verify').onclick=verify;$('cmpDesigns').onclick=compareDesigns;
 document.querySelectorAll('input[name=meth]').forEach(r=>r.onchange=()=>{const m=document.querySelector('input[name=meth]:checked').value;for(const k of ['doe','sqp','nsga','topo'])$('pane-'+k).style.display=k===m?'':'none';$('mono').style.display=m==='doe'||m==='sqp'?'':'none';$('multi').style.display=m==='nsga'?'':'none';$('crow').style.display=m==='topo'?'none':'';if(m==='topo'){drawTopoMap();drawTopoCurve()}if(m==='nsga'){drawGeoStrip();drawNsField()}});
 $('nsSlide').addEventListener('input',()=>{const L=frontSorted();const p=L[+$('nsSlide').value];if(!p)return;NSSEL=p;showSel();drawPareto();drawGeoStrip();drawNsField()});
+renderFlows();
 $('tpEF').onclick=()=>runTopo(['ef']);$('tpMEC').onclick=()=>runTopo(['mec']);$('tpBoth').onclick=()=>runTopo(['ef','mec']);$('tpStop').onclick=()=>TOPOSTOP=true;
 $('tpView').onchange=()=>{const r=TOPORES[$('tpView').value];if(r){$('tpSlide').max=r.hist.length-1;$('tpSlide').value=r.hist.length-1}drawTopoMap();drawTopoCurve()};$('tpSlide').addEventListener('input',()=>{drawTopoMap();drawTopoCurve()});
 addEventListener('resize',()=>{drawGeoStrip();drawNsField();drawTopoMap();drawTopoCurve()});
