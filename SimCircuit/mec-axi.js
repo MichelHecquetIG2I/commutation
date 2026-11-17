@@ -45,6 +45,7 @@
     const air = p.air ?? 30, Rd = rObj + air, Zd = zObj + air;
     const rk = [0, Rd], zk = [-Zd, Zd];
     for (const g of regs) { rk.push(g.r0, g.r1); zk.push(g.z0, g.z1, -g.z0, -g.z1); }
+    if (p.extraR) rk.push(...p.extraR); if (p.extraZ) for (const v of p.extraZ) zk.push(v, -v);
     const R = gridLines(rk, rObj, p.nr || 50), Z = gridLines(zk, zObj, p.nz || 50);
     const nr = R.length - 1, nz = Z.length - 1;
     const cell = new Int16Array(nr * nz);   // indice de région (−1 : air)
@@ -53,7 +54,16 @@
       let id = -1; for (let q = 0; q < regs.length; q++) { const g = regs[q]; if (rc > g.r0 && rc < g.r1 && zc > g.z0 && zc < g.z1) { id = q; break; } }
       cell[i * nz + k] = id;
     }
-    return { R, Z, nr, nz, cell, Rd, Zd };
+    // optimisation topologique ON/OFF : cellule de conception de chaque cellule MEC (−1 : hors espace de conception)
+    let topoCell = null;
+    if (p.topo) {
+      topoCell = new Int32Array(nr * nz).fill(-1);
+      for (let i = 0; i < nr; i++) for (let k = 0; k < nz; k++) {
+        const id = cell[i * nz + k]; if (id >= 0 && regs[id].mat === 'coil') continue;
+        topoCell[i * nz + k] = p.topo.cell((R[i] + R[i + 1]) / 2, Math.abs((Z[k] + Z[k + 1]) / 2));
+      }
+    }
+    return { R, Z, nr, nz, cell, Rd, Zd, topoCell };
   }
 
   /* Solveur bande symétrique (Cholesky). */
@@ -79,6 +89,7 @@
     const coil = regs.find(q => q.mat === 'coil');
     const J = p.N * p.I / ((coil.r1 - coil.r0) * (coil.z1 - coil.z0) * 2 * mm * mm);     // A/m²
     const mat = id => (id < 0 ? 'air' : regs[id].mat);
+    const tc = g.topoCell, matQ = q => (tc && tc[q] >= 0 ? (p.topo.on[tc[q]] ? 'iron' : 'air') : mat(cell[q]));
     // ---- inconnues : flux de mailles aux coins intérieurs (i = 1..nr−1, k = 1..nz−1)
     const ni = nr - 1, nk = nz - 1, n = ni * nk, w = nk;
     const idx = (i, k) => (i <= 0 || i >= nr || k <= 0 || k >= nz) ? -1 : (i - 1) * nk + (k - 1);
@@ -86,17 +97,17 @@
     // radiale entre cellules (i,k) et (i+1,k) : traverse r = R[i+1], flux = Φ(i+1,k) − Φ(i+1,k+1)
     // axiale  entre cellules (i,k) et (i,k+1) : traverse z = Z[k+1], flux = Φ(i+1,k+1) − Φ(i,k+1)
     const br = [];
-    const half = (id, kind, i, k, side) => {
+    const half = (q, kind, i, k, side) => {
       const r1 = R[i] * mm, r2 = R[i + 1] * mm, rc = (r1 + r2) / 2, dz = (Z[k + 1] - Z[k]) * mm;
       let l, S;
       if (kind === 'r') { const ra = side < 0 ? r1 : rc, rb = side < 0 ? rc : r2; l = rb - ra; S = ra > 0 ? 2 * Math.PI * dz * l / Math.log(rb / ra) : 2 * Math.PI * dz * rb / 2; }
       else { l = dz / 2; S = Math.PI * (r2 * r2 - r1 * r1); }
-      return { m: mat(id), l, S, cell: i * nz + k };
+      return { m: matQ(q), l, S, cell: i * nz + k };
     };
     for (let i = 0; i < nr - 1; i++) for (let k = 0; k < nz; k++)
-      br.push({ a: idx(i + 1, k), b: idx(i + 1, k + 1), h: [half(cell[i * nz + k], 'r', i, k, +1), half(cell[(i + 1) * nz + k], 'r', i + 1, k, -1)], dir: 'r', i, k });
+      br.push({ a: idx(i + 1, k), b: idx(i + 1, k + 1), h: [half(i * nz + k, 'r', i, k, +1), half((i + 1) * nz + k, 'r', i + 1, k, -1)], dir: 'r', i, k });
     for (let i = 0; i < nr; i++) for (let k = 0; k < nz - 1; k++)
-      br.push({ a: idx(i + 1, k + 1), b: idx(i, k + 1), h: [half(cell[i * nz + k], 'z', i, k, +1), half(cell[i * nz + k + 1], 'z', i, k + 1, -1)], dir: 'z', i, k });
+      br.push({ a: idx(i + 1, k + 1), b: idx(i, k + 1), h: [half(i * nz + k, 'z', i, k, +1), half(i * nz + k + 1, 'z', i, k + 1, -1)], dir: 'z', i, k });
     // ---- sources de f.m.m. : ampères-tours enlacés par chaque maille (quarts des cellules de bobinage autour du coin)
     const src = new Float64Array(n);
     for (let i = 0; i < nr; i++) for (let k = 0; k < nz; k++) if (mat(cell[i * nz + k]) === 'coil') {
@@ -135,7 +146,7 @@
       let step = 1, trial, tst;
       for (let ls = 0; ls < 10; ls++) { trial = Float64Array.from(Phi, (v, q) => v + step * d[q]); tst = assemble(trial); if (tst.norm < st.norm || ls === 9) break; step /= 2; }
       Phi = trial; st = tst;
-      if (linear || !regs.some(q => q.mat === 'iron')) { it++; break; }
+      if (linear || !br.some(e => e.h[0].m === 'iron' || e.h[1].m === 'iron')) { it++; break; }
     }
     if (st.norm / sn > 1e-6 && !linear) converged = false;
     // ---- post-traitement
@@ -162,12 +173,12 @@
       const bz = (bzb + bzt) / 2, brv = r1 > 0 ? (brl + brr) / 2 : brr;
       Bz[i * nz + k] = bz; Br[i * nz + k] = brv; Bmod[i * nz + k] = Math.hypot(bz, brv);
     }
-    let BmaxIron = 0; for (let q = 0; q < nr * nz; q++) if (mat(cell[q]) === 'iron') BmaxIron = Math.max(BmaxIron, Bmod[q]);
+    let BmaxIron = 0; for (let q = 0; q < nr * nz; q++) if (matQ(q) === 'iron') BmaxIron = Math.max(BmaxIron, Bmod[q]);
     // flux principal : plan médian z = 0, disque r < rᵢ
     const kz0 = Z.findIndex(v => Math.abs(v) < 1e-9), ir = R.findIndex(v => Math.abs(v - coil.r0) < 1e-9);
     const phiCore = kz0 >= 0 && ir >= 0 ? corner(ir, kz0) : NaN;
     const t1 = (typeof performance !== 'undefined' ? performance : Date).now();
-    return { p, regs, grid: g, Phi, corner, lambda: lam, L: lam / p.I, W, Lw: 2 * W / (p.I * p.I), phiCore, BmaxIron, Bmod, Bz, Br,
+    return { p, regs, grid: g, matQ, Phi, corner, lambda: lam, L: lam / p.I, W, Lw: 2 * W / (p.I * p.I), phiCore, BmaxIron, Bmod, Bz, Br,
       unknowns: n, branches: br.length, it, converged, ms: t1 - t0, J };
   }
 
