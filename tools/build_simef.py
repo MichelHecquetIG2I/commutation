@@ -38,7 +38,7 @@ def main():
     (DST / "index.html").write_text(s, encoding="utf-8")
     for f in ["fem-axi.js", "mec-axi.js"] + ICONES:
         shutil.copy2(ROOT / f, DST / f)
-    for f in ["plans.html", "doe.js", "illustration-optimisation-inductance.png"]:
+    for f in ["plans.html", "doe.js", "optim.js", "illustration-optimisation-inductance.png"]:
         shutil.copy2(SRC / f, DST / f)
     shutil.copytree(SRC / "tutoriel", DST / "tutoriel")
     base = "https://michelhecquetig2i.github.io/commutation/SimEF/"

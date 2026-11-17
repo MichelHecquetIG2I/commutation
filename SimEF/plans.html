@@ -58,6 +58,11 @@ canvas.big{height:380px}
 .ctl label{display:flex;align-items:center;gap:6px}
 .sl{display:grid;grid-template-columns:150px 1fr 90px;gap:8px;align-items:center;font-size:12px;margin:2px 0}
 .sl output{font-family:var(--mono);text-align:right}
+.mtabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:3px;margin-bottom:8px}
+.mtabs label{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:5px;cursor:pointer;font-weight:500;color:var(--muted)}
+.mtabs label:has(input:checked){background:var(--panel2);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+ol.steps{margin:4px 0 8px;padding-left:20px;font-size:12.5px}ol.steps li{margin:2px 0}
+.cmp{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:10px;background:var(--panel);font-size:12.5px}
 .ok{color:var(--good)}.ko{color:var(--bad)}.wa{color:var(--warn)}
 details{margin-top:8px}summary{cursor:pointer;color:var(--accent)}details p,details li{font-size:12.5px}
 code{font-family:var(--mono);font-size:12px}
@@ -125,12 +130,52 @@ code{font-family:var(--mono);font-size:12px}
     <div id="sliders"></div>
     <canvas class="ch big" id="surf"></canvas>
   </section>
-  <section class="card">
-    <h2>Optimisation sur le modèle</h2>
-    <div class="ctl"><label><select class="v" id="dir" style="width:auto"><option value="max">Maximiser</option><option value="min">Minimiser</option></select></label><label><select class="v" id="obj" style="width:auto"></select></label></div>
+  <section class="card" id="optCard">
+    <h2>Optimisation</h2>
+    <div class="mtabs" role="tablist" aria-label="Méthode d’optimisation">
+      <label><input type="radio" name="meth" value="doe" checked>1 · Plans d’expériences + modèle</label>
+      <label><input type="radio" name="meth" value="sqp">2 · SQP direct sur EF / MEC</label>
+      <label><input type="radio" name="meth" value="nsga">3 · Multi-objectif NSGA-II</label></div>
+    <div id="mono">
+      <div class="ctl"><label><select class="v" id="dir" style="width:auto"><option value="max">Maximiser</option><option value="min">Minimiser</option></select></label><label><select class="v" id="obj" style="width:auto"></select></label></div>
+    </div>
+    <div id="multi" style="display:none">
+      <div class="ctl"><label>Objectif 1 : maximiser <select class="v" id="obj1" style="width:auto"></select></label><label>Objectif 2 : minimiser <select class="v" id="obj2" style="width:auto"></select></label></div>
+    </div>
     <div class="ctl"><label><input type="checkbox" id="useC" checked>sous la contrainte</label><select class="v" id="cresp" style="width:auto"></select><select class="v" id="cop" style="width:auto"><option value="le">≤</option><option value="ge">≥</option></select><input class="v" id="cval" style="width:90px" value="1.2"></div>
-    <div style="display:flex;gap:6px"><button class="btn primary" id="optim" disabled>Optimiser</button><button class="btn" id="verify" disabled>Vérifier par simulation</button></div>
-    <div id="optRes" style="margin-top:8px"></div>
+
+    <div class="mpane" id="pane-doe">
+      <p class="hint">Démarche : les essais du plan ont été simulés et un modèle (surface de réponse) a été ajusté sur chaque réponse. L’optimisation porte sur ce modèle — instantanée — puis on vérifie le point trouvé par une simulation. Recherche : 6 000 points aléatoires puis recherche par motifs (compass search) depuis les 6 meilleurs ; contrainte par rejet.</p>
+      <div style="display:flex;gap:6px"><button class="btn primary" id="optim" disabled>Optimiser sur le modèle</button><button class="btn" id="verify" disabled>Vérifier par simulation</button></div>
+      <div id="optRes" style="margin-top:8px"></div>
+    </div>
+
+    <div class="mpane" id="pane-sqp" style="display:none">
+      <ol class="steps">
+        <li><b>Point de départ</b> x₀ (variables codées) : une simulation donne f(x₀) et c(x₀).</li>
+        <li><b>Gradients</b> ∇f et ∇c par différences finies : k simulations (avant) ou 2k (centrées), pas h en variables codées.</li>
+        <li><b>Hessien</b> du lagrangien approché par la formule <b>BFGS</b> amortie (Powell), mise à jour à chaque itération à partir des variations de gradient.</li>
+        <li><b>Sous-problème quadratique</b> : min ½dᵀBd + ∇fᵀd sous c + ∇cᵀd ≤ 0 et les bornes → direction d et multiplicateur µ.</li>
+        <li><b>Recherche linéaire</b> sur la fonction de mérite φ = f + ρ·max(0, c) : on accepte x + t·d (t = 1, ½, ¼…) si φ diminue.</li>
+        <li><b>Arrêt</b> quand le pas devient très petit avec la contrainte respectée. Coût total : chaque itération ≈ k + 1 à 2k + 2 simulations.</li></ol>
+      <div class="ctl"><label>Départ <select class="v" id="sqpX0" style="width:auto"><option value="center">centre du domaine</option><option value="best">meilleur essai admissible du plan</option><option value="opt">optimum du modèle (méthode 1)</option></select></label>
+        <label>Gradients <select class="v" id="sqpFD" style="width:auto"><option value="fwd">différences avant</option><option value="cen">différences centrées</option></select></label>
+        <label>pas h <input class="v" id="sqpH" style="width:70px" value="0.03"></label><label>itérations max <input class="v" id="sqpIt" style="width:60px" value="12"></label></div>
+      <div style="display:flex;gap:6px"><button class="btn primary" id="sqpRun">Lancer SQP</button><button class="btn" id="sqpStop" disabled>Arrêter</button></div>
+      <div class="kpi" id="sqpInfo"></div>
+      <div class="two"><div class="tbl" style="max-height:300px"><table class="res" id="sqpTab"></table></div><canvas class="ch" id="sqpCh"></canvas></div>
+      <div id="sqpRes"></div>
+    </div>
+
+    <div class="mpane" id="pane-nsga" style="display:none">
+      <p class="hint">Démarche NSGA-II (Deb, 2002) : une population de géométries évolue sur plusieurs générations (sélection par tournoi, croisement SBX, mutation polynomiale). Le classement se fait par fronts de non-domination et par distance de surpeuplement, ce qui répartit les solutions le long du <b>front de Pareto</b> : aucun point du front ne peut améliorer un objectif sans dégrader l’autre. Les géométries qui violent la contrainte sont dominées par toutes les géométries admissibles.</p>
+      <div class="ctl"><label>Évaluation <select class="v" id="nsEval" style="width:auto"><option value="model">sur le modèle du plan (instantané)</option><option value="direct">directe par le solveur (EF / MEC)</option></select></label>
+        <label>population <input class="v" id="nsPop" style="width:60px" value="40"></label><label>générations <input class="v" id="nsGen" style="width:60px" value="30"></label><span class="hint" id="nsCost"></span></div>
+      <div style="display:flex;gap:6px"><button class="btn primary" id="nsRun">Lancer NSGA-II</button><button class="btn" id="nsStop" disabled>Arrêter</button><button class="btn" id="nsVerify" disabled>Vérifier le point choisi</button></div>
+      <div class="kpi" id="nsInfo"></div>
+      <div class="two"><div><canvas class="ch big" id="pareto"></canvas><div class="hint">Cliquez un point du front pour voir la géométrie. Couleur : part de l’énergie stockée dans l’entrefer.</div></div><div id="nsSel"></div></div>
+      <div class="cmp" id="energyBox"></div>
+    </div>
   </section>
   <section class="card" id="exemple">
     <h2>Exemple de résultats sur l’inductance</h2>
@@ -147,6 +192,7 @@ code{font-family:var(--mono);font-size:12px}
 <script src="fem-axi.js"></script>
 <script src="mec-axi.js"></script>
 <script src="doe.js"></script>
+<script src="optim.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -162,12 +208,15 @@ const FACT=[
   {id:'N', sym:'N', name:'Nombre de spires', unit:'', min:50, max:200, fix:100, on:false},
   {id:'I', sym:'I', name:'Courant', unit:'A', min:1, max:20, fix:10, on:false}];
 const RESP=[
-  {id:'L', name:'Inductance L', unit:'mH', d:4},
-  {id:'B', name:'B moyen dans le noyau', unit:'T', d:3},
-  {id:'mfe',name:'Masse de fer', unit:'g', d:4},
-  {id:'W', name:'Énergie magnétique W', unit:'mJ', d:4},
-  {id:'LsM',name:'L / masse de fer', unit:'µH/g', d:4},
-  {id:'J', name:'Densité de courant J', unit:'A/mm²', d:3}];
+  {id:'L', name:'Inductance L', short:'L', unit:'mH', d:4},
+  {id:'B', name:'B moyen dans le noyau', short:'B noyau', unit:'T', d:3},
+  {id:'mfe',name:'Masse de fer', short:'m fer', unit:'g', d:4},
+  {id:'W', name:'Énergie emmagasinée W', short:'W', unit:'mJ', d:4},
+  {id:'Wg', name:'Énergie dans l’entrefer Wg', short:'Wg', unit:'mJ', d:4},
+  {id:'pWg',name:'Part de W dans l’entrefer', short:'Wg/W', unit:'%', d:3},
+  {id:'WsM',name:'W / masse de fer', short:'W/m', unit:'mJ/kg', d:4},
+  {id:'LsM',name:'L / masse de fer', short:'L/m', unit:'µH/g', d:4},
+  {id:'J', name:'Densité de courant J', short:'J', unit:'A/mm²', d:3}];
 const RHO_FE=7650;
 
 function buildFactTable(){const tb=$('fac').querySelector('tbody');tb.innerHTML='';
@@ -184,15 +233,20 @@ function paramsFor(vals){ // vals : {g, rn, eb, h, N, I} en unités réelles
     ds:sol==='ef2'?2:1,Rmax:400,air:30,nr:sol==='mec30'?30:50,nz:sol==='mec30'?30:50,_v:v}}
 function valid(p){if(!(p.gap>0.05&&p.gap<p.h-2))return 'entrefer hors domaine';if(!(p.rn>1))return 'rayon de noyau trop petit';if(!(p.re>p.ri+0.5))return 'bobinage trop mince';if(!(p.h>4))return 'hauteur trop faible';if(!(p.N>=1&&p.I>0))return 'N ou I invalide';return null}
 function simulate(p){
-  const sol=$('solver').value,mec=sol.startsWith('mec');let L,Bc,W;
+  const sol=$('solver').value,mec=sol.startsWith('mec'),MU0=4e-7*Math.PI;let L,Bc,W,Wg=0;
   if(mec){const r=MEC.solve(p),g=r.grid,ic=r.regs.findIndex(q=>q.name==='Noyau central');let s=0,w=0;
     for(let i=0;i<g.nr;i++)for(let k=0;k<g.nz;k++){if(g.cell[i*g.nz+k]!==ic)continue;const a=(g.R[i+1]**2-g.R[i]**2)*(g.Z[k+1]-g.Z[k]);s+=r.Bmod[i*g.nz+k]*a;w+=a}
-    L=r.L;Bc=s/w;W=r.W}
+    L=r.L;Bc=s/w;W=r.W;
+    // énergie dans l'entrefer : cellules d'air de rayon < rn et |z| < g/2
+    for(let i=0;i<g.nr;i++)for(let k=0;k<g.nz;k++){const rc=(g.R[i]+g.R[i+1])/2,zc=Math.abs((g.Z[k]+g.Z[k+1])/2);if(g.cell[i*g.nz+k]>=0||rc>=p.rn||zc>=p.gap/2)continue;
+      const vol=Math.PI*(g.R[i+1]**2-g.R[i]**2)*(g.Z[k+1]-g.Z[k])*1e-9,b=r.Bmod[i*g.nz+k];Wg+=b*b/(2*MU0)*vol}}
   else{const r=FEM.solve(p),ic=r.regs.findIndex(q=>q.name==='Noyau central');let s=0,w=0;
-    for(let e=0;e<r.G.ne;e++){if(r.m.reg[e]!==ic)continue;const a=r.G.area[e]*r.G.rc[e];s+=r.B.Bm[e]*a;w+=a}L=r.L;Bc=s/w;W=r.W}
+    for(let e=0;e<r.G.ne;e++){if(r.m.reg[e]!==ic)continue;const a=r.G.area[e]*r.G.rc[e];s+=r.B.Bm[e]*a;w+=a}L=r.L;Bc=s/w;W=r.W;
+    for(let e=0;e<r.G.ne;e++){if(r.m.reg[e]>=0||r.G.rc[e]*1000>=p.rn)continue;const zc=(r.m.y[r.m.tri[3*e]]+r.m.y[r.m.tri[3*e+1]]+r.m.y[r.m.tri[3*e+2]])/3*1000;if(zc>=p.gap/2)continue;
+      const b=r.B.Bm[e];Wg+=b*b/(2*MU0)*2*Math.PI*r.G.rc[e]*r.G.area[e]*2}}
   let vfe=0;for(const q of FEM.buildGeometry(p))if(q.mat==='iron')vfe+=Math.PI*(q.r1*q.r1-q.r0*q.r0)*(q.z1-q.z0)*2;
   const mfe=vfe*1e-9*RHO_FE*1000;
-  return {L:L*1e3,B:Bc,mfe,W:W*1e3,LsM:L*1e6/mfe,J:p.N*p.I/((p.re-p.ri)*p.h)}}
+  return {L:L*1e3,B:Bc,mfe,W:W*1e3,Wg:Wg*1e3,pWg:100*Wg/W,WsM:W*1e3/(mfe/1000),LsM:L*1e6/mfe,J:p.N*p.I/((p.re-p.ri)*p.h)}}
 
 /* ---------- génération du plan ---------- */
 let PLAN=null; // {D (codé), type, k, facts, runs:[{x, real, res, err}]}
@@ -224,7 +278,7 @@ function showCriteria(){const T=t=>DOE.terms(PLAN.k,t),c=[['lin','linéaire'],['
   const out=PLAN.runs.filter(r=>r.x.some(v=>Math.abs(v)>1+1e-9)).length;
   $('crit').innerHTML=`<span><b>${DNAME[PLAN.type]}</b> · ${PLAN.k} facteurs · <b>${PLAN.D.length}</b> essais</span>`+c.join('')+(out?`<span class="wa">${out} essai(s) hors des bornes (points axiaux)</span>`:'')}
 function renderTable(){if(!PLAN)return;const F=PLAN.facts;
-  let h='<tr><th>#</th>'+F.map(f=>`<th>${f.sym} <span class="hint">codé</span></th>`).join('')+F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')+RESP.map(r=>`<th>${r.name.split(' ')[0]==='Inductance'?'L':r.id==='B'?'B noyau':r.id==='mfe'?'m fer':r.id==='W'?'W':r.id==='LsM'?'L/m':'J'} (${r.unit})</th>`).join('')+'</tr>';
+  let h='<tr><th>#</th>'+F.map(f=>`<th>${f.sym} <span class="hint">codé</span></th>`).join('')+F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')+RESP.map(r=>`<th>${r.short} (${r.unit})</th>`).join('')+'</tr>';
   PLAN.runs.forEach((r,i)=>{h+=`<tr class="${r.err?'bad':''}${r.running?' run':''}"><td>${i+1}</td>`+r.x.map(v=>`<td class="c">${(+v.toFixed(3)).toLocaleString('fr-FR')}</td>`).join('')+r.real.map(v=>`<td>${nf(v)}</td>`).join('')+
     RESP.map(q=>`<td>${r.err?(q.id==='L'?r.err:''):r.res?nf(r.res[q.id],q.d):''}</td>`).join('')+'</tr>'});
   $('tab').innerHTML=h}
@@ -300,6 +354,8 @@ function drawSurf(){const [g,W,H]=ctx($('surf'));if(!PLAN)return;const rid=$('re
   // points du plan (projection)
   g.lineWidth=1.5;PLAN.runs.forEach(r=>{const x=r.x[ix],y=r.x[iy];if(Math.abs(x)>1.001||Math.abs(y)>1.001)return;g.fillStyle=r.err?css('--bad'):'#fff';g.strokeStyle='#111';g.beginPath();g.arc(X(x),Y(y),4,0,7);g.fill();g.stroke()});
   if(OPT){g.strokeStyle='#fff';g.lineWidth=2.5;const x=X(OPT.x[ix]),y=Y(OPT.x[iy]);g.beginPath();g.moveTo(x-8,y);g.lineTo(x+8,y);g.moveTo(x,y-8);g.lineTo(x,y+8);g.stroke();g.strokeStyle='#111';g.lineWidth=1;g.beginPath();g.arc(x,y,9,0,7);g.stroke()}
+  if(SQPPATH&&SQPPATH.length&&SQPPATH[0].length===PLAN.k){g.strokeStyle='#fff';g.lineWidth=2;g.setLineDash([4,3]);g.beginPath();SQPPATH.forEach((x,i)=>i?g.lineTo(X(x[ix]),Y(x[iy])):g.moveTo(X(x[ix]),Y(x[iy])));g.stroke();g.setLineDash([]);
+    SQPPATH.forEach((x,i)=>{g.fillStyle=i===SQPPATH.length-1?'#ffd400':'#fff';g.strokeStyle='#111';g.lineWidth=1;g.beginPath();g.rect(X(x[ix])-3.5,Y(x[iy])-3.5,7,7);g.fill();g.stroke()})}
   g.strokeStyle=css('--line');g.strokeRect(P.l,P.t,w,h)}
 function drawAll(){drawEffects();drawPvO();drawSurf()}
 
@@ -325,6 +381,84 @@ function showOpt(sim){const F=PLAN.facts;let h='<table class="res" style="width:
 function verify(){if(!OPT)return;const vals={};PLAN.facts.forEach((f,j)=>vals[f.id]=OPT.real[j]);const p=paramsFor(vals),bad=valid(p);if(bad){$('optRes').insertAdjacentHTML('beforeend','<div class="ko">'+bad+'</div>');return}
   $('verify').disabled=true;setTimeout(()=>{try{showOpt(simulate(p))}catch(e){$('optRes').insertAdjacentHTML('beforeend','<div class="ko">'+e.message+'</div>')}$('verify').disabled=false},20)}
 
+/* ---------- méthodes directes : SQP et NSGA-II ---------- */
+const FF=()=>PLAN?PLAN.facts:active();
+const realOf=x=>FF().map((f,j)=>f.min+(x[j]+1)/2*(f.max-f.min));
+const CACHE=new Map();let SIMCOUNT=0;
+function simDirect(x){const key=$('solver').value+$('mat').value+'|'+x.map(v=>v.toFixed(5)).join(',');if(CACHE.has(key))return CACHE.get(key);
+  const vals={};FF().forEach((f,j)=>vals[f.id]=realOf(x)[j]);const p=paramsFor(vals),bad=valid(p);let r=null;if(!bad){try{r=simulate(p);SIMCOUNT++}catch(e){r=null}}CACHE.set(key,r);return r}
+const consV=v=>{const cv=parseFloat($('cval').value.replace(',','.'));return ($('cop').value==='le'?v-cv:cv-v)/Math.max(Math.abs(cv),1e-9)};
+const modelAll=x=>Object.fromEntries(RESP.map(q=>[q.id,pred(q.id,x)]));
+let SQPPATH=null,SQPSTOP=false,NSSTOP=false,NS=null,NSSEL=null;
+function rowsFor(vals,cols){return cols.map(c=>`<td>${nf(vals[c.id],c.d)}</td>`).join('')}
+
+async function runSQP(){const F=FF(),k=F.length;if(k<2){alert('Choisissez au moins 2 facteurs.');return}
+  const rid=$('obj').value,sg=$('dir').value==='max'?1:-1,useC=$('useC').checked,cr=$('cresp').value,q=RESP.find(r=>r.id===rid),qc=RESP.find(r=>r.id===cr);
+  let x0=F.map(()=>0);const opt=$('sqpX0').value;
+  if(opt==='opt'&&OPT)x0=OPT.x.map(v=>Math.max(-1,Math.min(1,v)));
+  if(opt==='best'&&PLAN){let best=null;for(const r of PLAN.runs)if(r.res&&r.x.every(v=>Math.abs(v)<=1)&&(!useC||consV(r.res[cr])<=0)&&(!best||sg*r.res[rid]>sg*best.res[rid]))best=r;if(best)x0=best.x.slice()}
+  SQPSTOP=false;$('sqpRun').disabled=true;$('sqpStop').disabled=false;const t0=performance.now(),c0=SIMCOUNT;CACHE.clear();
+  const cols=[...F.map(f=>({h:f.sym+(f.unit?' ('+f.unit+')':'')})),{h:q.short+' ('+q.unit+')'},...(useC?[{h:qc.short+' ('+qc.unit+')'}]:[]),{h:'‖pas‖'},{h:'simulations'},{h:'remarque'}];
+  $('sqpTab').innerHTML='<tr><th>it.</th>'+cols.map(c=>`<th>${c.h}</th>`).join('')+'</tr>';SQPPATH=[];const hist=[];let scale=null;
+  const fun=x=>{if(SQPSTOP)throw new Error('stop');const r=simDirect(x);if(!r)return{f:1e3,c:useC?1e3:-Infinity};if(scale===null)scale=Math.max(Math.abs(r[rid]),1e-12);return{f:-sg*r[rid]/scale,c:useC?consV(r[cr]):-Infinity}};
+  const log=e=>{const r=simDirect(e.x),real=realOf(e.x);SQPPATH.push(e.x.slice());hist.push({it:e.it,v:r?r[rid]:NaN,c:r?r[cr]:NaN});
+    $('sqpTab').insertAdjacentHTML('beforeend',`<tr><td>${e.it}</td>${real.map(v=>`<td>${nf(v)}</td>`).join('')}<td>${r?nf(r[rid],q.d):'—'}</td>${useC?`<td class="${r&&consV(r[cr])<=1e-3?'':'ko'}">${r?nf(r[cr],qc.d):'—'}</td>`:''}<td>${isFinite(e.step)?e.step.toFixed(4):'—'}</td><td>${SIMCOUNT-c0}</td><td class="c" style="text-align:left">${e.note||''}</td></tr>`);
+    $('sqpInfo').innerHTML=`<span>Itération <b>${e.it}</b></span><span>Simulations : <b>${SIMCOUNT-c0}</b></span><span>${((performance.now()-t0)/1000).toFixed(1)} s</span>`;drawSQP(hist,q,qc,useC);drawSurf()};
+  let res=null;try{res=await OPTIM.sqp(fun,x0,{h:parseFloat($('sqpH').value.replace(',','.'))||0.03,maxIter:+$('sqpIt').value||12,central:$('sqpFD').value==='cen',log})}catch(e){if(e.message!=='stop')$('sqpRes').innerHTML='<span class="ko">'+e.message+'</span>'}
+  $('sqpRun').disabled=false;$('sqpStop').disabled=true;
+  if(res){const r=simDirect(res.x),real=realOf(res.x),n=SIMCOUNT-c0;let h=`<div class="cmp"><b>Optimum SQP</b> : ${F.map((f,j)=>`${f.sym} = ${nf(real[j])} ${f.unit}`).join(', ')} → ${q.name} = <b>${nf(r[rid],q.d)} ${q.unit}</b>${useC?`, ${qc.name} = ${nf(r[cr],qc.d)} ${qc.unit}`:''} — <b>${n}</b> simulations, ${((performance.now()-t0)/1000).toFixed(1)} s.`;
+    if(OPT){const so=OPT.sim||simDirect(OPT.x);if(so)h+=`<br>Méthode 1 (plan de ${PLAN.runs.length} essais + modèle + 1 vérification) : ${q.name} = ${nf(so[rid],q.d)} ${q.unit} → écart SQP / plan : <b>${((r[rid]/so[rid]-1)*100).toFixed(2).replace('.',',')} %</b>.`}
+    h+=`<br><span class="hint">SQP converge vers un optimum local en suivant les gradients : peu de simulations quand le problème est régulier, mais sensible au point de départ et au « bruit » numérique du maillage (choisir h assez grand). Le plan d’expériences explore tout le domaine et fournit un modèle réutilisable.</span></div>`;$('sqpRes').innerHTML=h}}
+function drawSQP(hist,q,qc,useC){const [g,W,H]=ctx($('sqpCh'));if(!hist.length)return;const P={l:50,r:50,t:14,b:28},w=W-P.l-P.r,h=H-P.t-P.b,n=Math.max(1,hist.length-1);
+  const ax=(vals,col,side)=>{const v=vals.filter(isFinite);if(!v.length)return null;let lo=Math.min(...v),hi=Math.max(...v);if(hi-lo<1e-12){lo-=1;hi+=1}const pad=(hi-lo)*.08;lo-=pad;hi+=pad;
+    g.fillStyle=col;g.textAlign=side?'left':'right';for(let k=0;k<=4;k++){const y=lo+(hi-lo)*k/4;g.fillText(nf(y,3),side?W-P.r+4:P.l-4,P.t+h-(k/4)*h+4)}return y=>P.t+h-(y-lo)/(hi-lo)*h};
+  g.strokeStyle=css('--line');g.strokeRect(P.l,P.t,w,h);const X=i=>P.l+i/n*w;
+  const Y1=ax(hist.map(e=>e.v),css('--accent'),0);g.strokeStyle=css('--accent');g.lineWidth=2;g.beginPath();hist.forEach((e,i)=>i?g.lineTo(X(i),Y1(e.v)):g.moveTo(X(i),Y1(e.v)));g.stroke();
+  if(useC){const Y2=ax(hist.map(e=>e.c),css('--bad'),1);const cv=parseFloat($('cval').value.replace(',','.'));g.setLineDash([5,3]);g.strokeStyle=css('--bad');g.lineWidth=1.5;g.beginPath();hist.forEach((e,i)=>i?g.lineTo(X(i),Y2(e.c)):g.moveTo(X(i),Y2(e.c)));g.stroke();
+    g.setLineDash([2,3]);g.beginPath();g.moveTo(P.l,Y2(cv));g.lineTo(P.l+w,Y2(cv));g.stroke();g.setLineDash([])}
+  g.fillStyle=css('--muted');g.textAlign='center';hist.forEach((e,i)=>g.fillText(e.it,X(i),H-12));g.fillText('itération',P.l+w/2,H-1);
+  g.textAlign='left';g.fillStyle=css('--accent');g.fillText(q.short+' ('+q.unit+')',P.l+4,P.t+12);if(useC){g.fillStyle=css('--bad');g.textAlign='right';g.fillText(qc.short+' ('+qc.unit+') et limite',P.l+w-4,P.t+12)}}
+
+async function runNSGA(){const F=FF(),k=F.length;if(k<2){alert('Choisissez au moins 2 facteurs.');return}
+  const mode=$('nsEval').value,o1=$('obj1').value,o2=$('obj2').value,useC=$('useC').checked,cr=$('cresp').value;
+  if(mode==='model'&&!(FITS[o1]&&FITS[o1].ok&&FITS[o2]&&FITS[o2].ok)){alert('Évaluation sur le modèle : lancez d’abord les simulations du plan (ou choisissez l’évaluation directe).');return}
+  NSSTOP=false;$('nsRun').disabled=true;$('nsStop').disabled=false;$('nsVerify').disabled=true;NSSEL=null;$('nsSel').innerHTML='';const t0=performance.now(),c0=SIMCOUNT;
+  const fun=x=>{if(NSSTOP)throw new Error('stop');const r=mode==='model'?modelAll(x):simDirect(x);if(!r)return{f:[1e9,1e9],cv:1e9};return{f:[-r[o1],r[o2]],cv:useC?Math.max(0,consV(r[cr])):0,extra:r}};
+  try{const res=await OPTIM.nsga2(fun,k,{pop:+$('nsPop').value||40,gen:+$('nsGen').value||30,seed:9,onGen:(g,P,nev)=>{NS={pop:P,mode,o1,o2,F:F.map(f=>({...f}))};
+      $('nsInfo').innerHTML=`<span>Génération <b>${g}</b> / ${$('nsGen').value}</span><span>Évaluations : <b>${nev}</b>${mode==='direct'?` (simulations : ${SIMCOUNT-c0})`:' (modèle)'}</span><span>Front : <b>${P.filter(p=>p.rank===0&&p.cv===0).length}</b> points</span><span>${((performance.now()-t0)/1000).toFixed(1)} s</span>`;drawPareto()}});
+    NS.front=res.front}catch(e){if(e.message!=='stop')alert(e.message)}
+  $('nsRun').disabled=false;$('nsStop').disabled=true;drawPareto();energyText()}
+function drawPareto(){const [g,W,H]=ctx($('pareto'));if(!NS)return;const q1=RESP.find(r=>r.id===NS.o1),q2=RESP.find(r=>r.id===NS.o2);const P={l:62,r:16,t:16,b:40},w=W-P.l-P.r,h=H-P.t-P.b;
+  const pts=NS.pop.map(p=>({p,x:p.f[1],y:-p.f[0]})).filter(o=>isFinite(o.x)&&isFinite(o.y)&&Math.abs(o.x)<1e8);if(!pts.length)return;
+  let x0=Math.min(...pts.map(o=>o.x)),x1=Math.max(...pts.map(o=>o.x)),y0=Math.min(...pts.map(o=>o.y)),y1=Math.max(...pts.map(o=>o.y));const px=(x1-x0)*.06||1,py=(y1-y0)*.08||1;x0-=px;x1+=px;y0-=py;y1+=py;
+  const X=v=>P.l+(v-x0)/(x1-x0)*w,Y=v=>P.t+h-(v-y0)/(y1-y0)*h;NS.view={X,Y,pts};
+  g.strokeStyle=css('--line');g.strokeRect(P.l,P.t,w,h);g.fillStyle=css('--muted');
+  for(let k=0;k<=4;k++){g.textAlign='center';g.fillText(nf(x0+(x1-x0)*k/4,3),P.l+w*k/4,H-P.b+14);g.textAlign='right';g.fillText(nf(y0+(y1-y0)*k/4,3),P.l-5,P.t+h-h*k/4+4)}
+  g.fillStyle=css('--fg');g.textAlign='center';g.fillText(q2.name+' ('+q2.unit+') — à minimiser',P.l+w/2,H-6);g.save();g.translate(13,P.t+h/2);g.rotate(-Math.PI/2);g.fillText(q1.name+' ('+q1.unit+') — à maximiser',0,0);g.restore();
+  const fr=pts.filter(o=>o.p.rank===0&&o.p.cv===0).sort((a,b)=>a.x-b.x);
+  const pv=fr.map(o=>o.p.extra&&o.p.extra.pWg).filter(isFinite),plo=pv.length?Math.min(...pv):0,phi=pv.length?Math.max(...pv):1;
+  for(const o of pts){if(o.p.rank===0&&o.p.cv===0)continue;if(o.p.cv>0){g.strokeStyle=css('--bad');g.lineWidth=1.2;g.beginPath();g.moveTo(X(o.x)-3,Y(o.y)-3);g.lineTo(X(o.x)+3,Y(o.y)+3);g.moveTo(X(o.x)+3,Y(o.y)-3);g.lineTo(X(o.x)-3,Y(o.y)+3);g.stroke()}else{g.fillStyle='rgba(140,150,160,.6)';g.beginPath();g.arc(X(o.x),Y(o.y),2.5,0,7);g.fill()}}
+  g.strokeStyle=css('--accent');g.lineWidth=1.5;g.beginPath();fr.forEach((o,i)=>i?g.lineTo(X(o.x),Y(o.y)):g.moveTo(X(o.x),Y(o.y)));g.stroke();
+  for(const o of fr){const v=o.p.extra&&o.p.extra.pWg;g.fillStyle=isFinite(v)?cmap((v-plo)/((phi-plo)||1)):css('--accent');g.strokeStyle='#111';g.lineWidth=.8;g.beginPath();g.arc(X(o.x),Y(o.y),4.5,0,7);g.fill();g.stroke()}
+  if(NSSEL){g.strokeStyle=css('--fg');g.lineWidth=2;g.beginPath();g.arc(X(NSSEL.f[1]),Y(-NSSEL.f[0]),9,0,7);g.stroke()}
+  if(pv.length){const lx=P.l+w-160,ly=P.t+h-40;for(let i=0;i<=20;i++){g.fillStyle=cmap(i/20);g.fillRect(lx+i*7,ly,7,8)}g.fillStyle=css('--fg');g.textAlign='left';g.fillText('Wg/W : '+nf(plo,3)+' → '+nf(phi,3)+' %',lx,ly+22)}
+  g.fillStyle=css('--muted');g.textAlign='left';g.fillText('● front de Pareto   ● dominés   ✕ contrainte violée',P.l+6,P.t+h-6)}
+function selectPareto(ev){if(!NS||!NS.view)return;const rect=$('pareto').getBoundingClientRect(),mx=ev.clientX-rect.left,my=ev.clientY-rect.top;let best=null,bd=1e9;
+  for(const o of NS.view.pts){if(o.p.cv>0)continue;const d=Math.hypot(NS.view.X(o.x)-mx,NS.view.Y(o.y)-my);if(d<bd){bd=d;best=o.p}}if(!best||bd>25)return;NSSEL=best;showSel();drawPareto();$('nsVerify').disabled=NS.mode!=='model'}
+function showSel(sim){const p=NSSEL,F=NS.F,real=p.x.map((c,j)=>F[j].min+(c+1)/2*(F[j].max-F[j].min)),r=p.extra;
+  let h=`<table class="res" style="width:auto"><tr><th style="text-align:left">Point choisi</th>${F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')}</tr><tr><td style="text-align:left">valeurs</td>${real.map(v=>`<td>${nf(v)}</td>`).join('')}</tr></table>`;
+  h+=`<table class="res" style="width:auto;margin-top:6px"><tr><th style="text-align:left">Réponse</th><th>${NS.mode==='model'?'modèle':'simulation'}</th>${sim?'<th>simulation</th><th>écart</th>':''}</tr>`+RESP.map(q=>`<tr><td style="text-align:left">${q.name} (${q.unit})</td><td>${nf(r[q.id],q.d)}</td>${sim?`<td>${nf(sim[q.id],q.d)}</td><td>${((r[q.id]/sim[q.id]-1)*100).toFixed(1).replace('.',',')} %</td>`:''}</tr>`).join('')+'</table>';
+  const MU0=4e-7*Math.PI,vals={};F.forEach((f,j)=>vals[f.id]=real[j]);const pp=paramsFor(vals),Vg=Math.PI*(pp.rn*1e-3)**2*pp.gap*1e-3,s=sim||r,Bg=Math.sqrt(2*MU0*s.Wg*1e-3/Vg);
+  h+=`<div class="cmp">Entrefer : V<sub>g</sub> = π·rn²·g = ${nf(Vg*1e9,3)} mm³ ; énergie Wg = ${nf(s.Wg,3)} mJ ⇒ B<sub>g</sub> = √(2µ0·Wg/V<sub>g</sub>) ≈ ${nf(Bg,3)} T (moyenne quadratique) ; ½·L·I² = ${nf(0.5*s.L*1e-3*pp.I*pp.I*1e3,3)} mJ pour W = ${nf(s.W,3)} mJ.</div>`;
+  $('nsSel').innerHTML=h}
+function nsVerify(){if(!NSSEL)return;const r=simDirect(NSSEL.x);if(r)showSel(r)}
+function energyText(){if(!NS||!NS.front||!NS.front.length){$('energyBox').innerHTML='';return}const fr=NS.front.map(p=>p.extra).filter(Boolean);const rng=(k,d=3)=>`${nf(Math.min(...fr.map(r=>r[k])),d)} à ${nf(Math.max(...fr.map(r=>r[k])),d)}`;
+  const xs=fr.map(r=>r.mfe),ys=fr.map(r=>r.W),n=xs.length,mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n,sl=xs.reduce((a,x,i)=>a+(x-mx)*(ys[i]-my),0)/Math.max(1e-12,xs.reduce((a,x)=>a+(x-mx)**2,0));
+  $('energyBox').innerHTML=`<b>Lien avec la maximisation de l’énergie emmagasinée.</b> À courant fixé, l’énergie stockée vaut W = ½·L·I² (fer non saturé) : maximiser W revient à maximiser L.
+    Dans une inductance à entrefer, l’essentiel de l’énergie est stocké dans l’entrefer : W ≈ B<sub>g</sub>²·V<sub>g</sub>/(2µ0), avec V<sub>g</sub> = π·rn²·g. L’induction est plafonnée par la saturation du fer (contrainte B noyau ≤ ${$('cval').value} T) :
+    pour stocker plus d’énergie, il faut donc un <b>plus grand volume d’entrefer</b>, c’est-à-dire un noyau de plus grande section… donc plus de fer. D’où le compromis énergie / masse décrit par le front de Pareto.<br>
+    Sur le front obtenu : W de ${rng('W')} mJ, masse de fer de ${rng('mfe')} g, part de l’énergie dans l’entrefer de ${rng('pWg')} %, W/masse de ${rng('WsM')} mJ/kg ; pente moyenne ΔW/Δm ≈ <b>${nf(sl*1000,3)} mJ/kg</b>.`}
+
 /* ---------- comparaison des plans ---------- */
 function compareDesigns(){const k=active().length;if(k<2||k>6)return;const rows=[];
   for(const t of Object.keys(DNAME)){let D;try{D=makeDesign(t,k,{n:Math.max(+$('nruns').value,DOE.terms(k,'quad').length),model:'quad',fv:0})}catch(e){D=null}if(!D)continue;
@@ -336,11 +470,14 @@ function exportCSV(){const F=PLAN.facts;const lines=[['essai',...F.map(f=>f.sym+
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+lines.join('\n')],{type:'text/csv'}));a.download='plan-experiences-inductance.csv';a.click()}
 
 /* ---------- initialisation ---------- */
-function fillResp(){const o=RESP.map(r=>`<option value="${r.id}">${r.name} (${r.unit})</option>`).join('');$('resp').innerHTML=o;$('obj').innerHTML=o;$('cresp').innerHTML=o;$('cresp').value='B';$('obj').value='LsM'}
+function fillResp(){const o=RESP.map(r=>`<option value="${r.id}">${r.name} (${r.unit})</option>`).join('');$('resp').innerHTML=o;$('obj').innerHTML=o;$('cresp').innerHTML=o;$('cresp').value='B';$('obj').value='LsM';$('obj1').innerHTML=o;$('obj2').innerHTML=o;$('obj1').value='W';$('obj2').value='mfe'}
 buildFactTable();fillResp();refreshDesignOptions();
 $('design').onchange=$('optModel').onchange=refreshDesignOptions;$('gen').onclick=generate;$('runAll').onclick=runAll;$('stop').onclick=()=>STOP=true;$('csv').onclick=exportCSV;
 $('resp').onchange=()=>{showStats();drawAll()};$('model').onchange=$('logy').onchange=refit;$('fx').onchange=$('fy').onchange=()=>{buildSliders();drawSurf()};
 $('optim').onclick=optimize;$('verify').onclick=verify;$('cmpDesigns').onclick=compareDesigns;
+document.querySelectorAll('input[name=meth]').forEach(r=>r.onchange=()=>{const m=document.querySelector('input[name=meth]:checked').value;for(const k of ['doe','sqp','nsga'])$('pane-'+k).style.display=k===m?'':'none';$('mono').style.display=m==='nsga'?'none':'';$('multi').style.display=m==='nsga'?'':'none'});
+$('sqpRun').onclick=runSQP;$('sqpStop').onclick=()=>SQPSTOP=true;$('nsRun').onclick=runNSGA;$('nsStop').onclick=()=>NSSTOP=true;$('nsVerify').onclick=nsVerify;$('pareto').addEventListener('click',selectPareto);
+const nsCost=()=>{$('nsCost').textContent=$('nsEval').value==='direct'?`≈ ${(+$('nsPop').value||40)*((+$('nsGen').value||30)+1)} simulations`:'évaluations instantanées sur le modèle'};for(const id of ['nsEval','nsPop','nsGen'])$(id).addEventListener('input',nsCost);nsCost();
 for(const id of ['useC','cresp','cop','cval'])$(id).onchange=drawSurf;
 $('solver').onchange=$('mat').onchange=()=>{if(PLAN){PLAN.runs.forEach(r=>{r.res=null;r.err=null});FITS={};OPT=null;renderTable();$('optRes').innerHTML='';$('stats').innerHTML='<span class="hint">Solveur modifié : relancez les simulations.</span>';drawAll()}};
 addEventListener('resize',drawAll);

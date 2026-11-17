@@ -94,10 +94,20 @@ fait perdre 29 % (air) à 48 % (noyau) sur L.
   D-efficacité, I et VIF, comparaison des plans ; modèles linéaire / interactions / quadratique (option log y) avec R²,
   R² ajusté, Q², coefficients ; surface de réponse ; optimisation sous contrainte sur le modèle et vérification par
   simulation ; export CSV.
+- **Trois méthodes d’optimisation** (carte « Optimisation », `tools/simef/optim.js`) :
+  1. *Plans d’expériences + modèle* : optimisation sur la surface de réponse puis vérification par une simulation ;
+  2. *SQP direct sur EF ou MEC* : gradients par différences finies (avant ou centrées), hessienne BFGS amortie,
+     sous-problème QP, recherche linéaire sur fonction de mérite L1 ; tableau des itérations, courbe de convergence,
+     trajectoire tracée sur la surface de réponse ;
+  3. *NSGA-II multi-objectif* (Deb, 2002) sur le modèle (instantané) ou en direct : front de Pareto, par défaut
+     énergie emmagasinée W à maximiser / masse de fer à minimiser sous B noyau ≤ 1,2 T, points colorés par la part
+     de l’énergie stockée dans l’entrefer ; clic sur un point → géométrie, réponses, vérification par simulation.
+- Réponses énergétiques : W, énergie dans l’entrefer Wg, part Wg/W, W / masse de fer.
 
 Exemple par défaut : g ∈ [0,3 ; 2] mm, rn ∈ [9 ; 15] mm, h ∈ [25 ; 50] mm, I = 10 A, plan CCF (15 essais, 1,5 s) ;
 maximiser L / masse de fer sous B noyau ≤ 1,2 T → g = 1,20 mm, rn = 9 mm, h = 25 mm, L = 3,16 mH ; modèle validé
-par simulation à 0,2 %.
+par simulation à 0,2 %. SQP direct (différences centrées) : même optimum (g = 1,205 mm) en 47 simulations EF
+(≈ 5 s). NSGA-II sur le modèle : front W de 174 à 379 mJ pour 216 à 898 g de fer, Wg/W de 75 à 82 %.
 
 Tutoriel vidéo (1 min 30, bouton « ▶ Tutoriel » ou `SimEF/plans.html?tuto`) : `tools/simef/tutoriel/plans-experiences.mp4`,
 enregistré par `python3 tools/simef/record_plans.py`. Illustration « Exemple de résultats » (bas de la page,
