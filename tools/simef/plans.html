@@ -520,7 +520,7 @@ function drawGeoStrip(){const c=$('nsGeo');if(!c||!c.clientWidth)return;const [g
   g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Même échelle — de la plus légère à la plus énergétique',6,12);
   ps.forEach((o,k)=>{const cx=pw*(k+.5),cy=top+hh/2;if(o.pt===NSSEL){g.strokeStyle=css('--accent');g.lineWidth=2;g.strokeRect(pw*k+2,top-2,pw-4,H-top)}
     drawPotAt(g,o.p,cx,cy,s);g.textAlign='center';g.font='10.5px '+css('--mono');g.fillStyle=css('--fg');g.fillText(`${nf(o.pt.extra.mfe,3)} g`,cx,H-46);g.fillText(`${nf(o.pt.extra.W,3)} mJ`,cx,H-33);
-    g.fillStyle=css('--muted');g.fillText(`rn ${nf(o.p.rn,3)} · g ${nf(o.p.gap,2)}`,cx,H-19);g.fillText(`h ${nf(o.p.h,3)}`+(NS.F.some(f=>f.id==='N')?` · N ${o.p.N} sp.`:''),cx,H-6)});
+    g.fillStyle=css('--muted');g.fillText(`rn ${nf(o.p.rn,3)} · g ${nf(o.p.gap,2)}`,cx,H-19);g.font='9.5px '+css('--mono');g.fillText(`h ${nf(o.p.h,3)}`+(NS.F.some(f=>f.id==='N')?` · N ${o.p.N} sp.`:''),cx,H-6);g.font='10.5px '+css('--mono')});
   g.font='11px '+css('--mono');g.strokeStyle=css('--fg');g.lineWidth=2;g.beginPath();g.moveTo(W-14-10*s,9);g.lineTo(W-14,9);g.stroke();g.fillStyle=css('--fg');g.textAlign='right';g.fillText('10 mm',W-18-10*s,13)}
 function drawNsField(){const c=$('nsField');if(!c||!c.clientWidth)return;const [g,W,H]=ctx(c);if(!NS||!NSSEL){g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Choisissez un point du front.',10,20);return}
   const p=nsParams(NSSEL),{sol,mec}=solveField(p),ex=extentOf(p),ext={R:ex.R+2,Z:ex.Z+2},s=Math.min((W-80)/(2*ext.R),(H-16)/(2*ext.Z)),cx=(W-60)/2,cy=H/2;
