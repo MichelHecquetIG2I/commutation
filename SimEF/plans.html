@@ -172,7 +172,8 @@ code{font-family:var(--mono);font-size:12px}
       <p class="hint">Démarche NSGA-II (Deb, 2002) : une population de géométries évolue sur plusieurs générations (sélection par tournoi, croisement SBX, mutation polynomiale). Le classement se fait par fronts de non-domination et par distance de surpeuplement, ce qui répartit les solutions le long du <b>front de Pareto</b> : aucun point du front ne peut améliorer un objectif sans dégrader l’autre. Les géométries qui violent la contrainte sont dominées par toutes les géométries admissibles.</p>
       <div class="ctl"><label>Évaluation <select class="v" id="nsEval" style="width:auto"><option value="model">sur le modèle du plan (instantané)</option><option value="direct">directe par le solveur (EF / MEC)</option></select></label>
         <label>population <input class="v" id="nsPop" style="width:60px" value="40"></label><label>générations <input class="v" id="nsGen" style="width:60px" value="30"></label><span class="hint" id="nsCost"></span></div>
-      <div class="ctl"><label><input type="checkbox" id="nsDisc">variables discrètes : N entier, cotes au pas de</label><input class="v" id="nsStep" style="width:60px" value="0.1"><span>mm</span>
+      <div class="ctl"><label>Nombre de spires N : entier, par pas de <input class="v" id="nsStepN" style="width:50px" value="1"> spire(s)</label>
+        <label><input type="checkbox" id="nsDisc">cotes discrètes au pas de</label><input class="v" id="nsStep" style="width:60px" value="0.1"><span>mm</span>
         <span class="hint">L’algorithme génétique ne calcule aucun gradient : il traite directement des variables entières ou prises dans un catalogue (nombre de spires, tôles ou noyaux normalisés), ce que SQP ne sait pas faire.</span></div>
       <div style="display:flex;gap:6px"><button class="btn primary" id="nsRun">Lancer NSGA-II</button><button class="btn" id="nsStop" disabled>Arrêter</button><button class="btn" id="nsVerify" disabled>Vérifier le point choisi</button></div>
       <div class="kpi" id="nsInfo"></div>
@@ -234,7 +235,7 @@ const FACT=[
   {id:'rn',sym:'rn',name:'Rayon du noyau', unit:'mm', min:9, max:15, fix:14, on:true},
   {id:'eb',sym:'e', name:'Épaisseur du bobinage', unit:'mm', min:6, max:14, fix:10, on:false},
   {id:'h', sym:'h', name:'Hauteur du bobinage', unit:'mm', min:25, max:50, fix:40, on:true},
-  {id:'N', sym:'N', name:'Nombre de spires', unit:'', min:50, max:200, fix:100, on:false},
+  {id:'N', sym:'N', name:'Nombre de spires', unit:'spires', min:50, max:200, fix:100, on:false},
   {id:'I', sym:'I', name:'Courant', unit:'A', min:1, max:20, fix:10, on:false}];
 const RESP=[
   {id:'L', name:'Inductance L', short:'L', unit:'mH', d:4},
@@ -454,8 +455,8 @@ async function runNSGA(){const F=FF(),k=F.length;if(k<2){alert('Choisissez au mo
   const mode=$('nsEval').value,o1=$('obj1').value,o2=$('obj2').value,useC=$('useC').checked,cr=$('cresp').value;
   if(mode==='model'&&!(FITS[o1]&&FITS[o1].ok&&FITS[o2]&&FITS[o2].ok)){alert('Évaluation sur le modèle : lancez d’abord les simulations du plan (ou choisissez l’évaluation directe).');return}
   NSSTOP=false;$('nsRun').disabled=true;$('nsStop').disabled=false;$('nsVerify').disabled=true;NSSEL=null;$('nsSel').innerHTML='';const t0=performance.now(),c0=SIMCOUNT;
-  const disc=$('nsDisc').checked,stepMM=parseFloat($('nsStep').value.replace(',','.'))||0;
-  const fun=x=>{if(NSSTOP)throw new Error('stop');if(disc)snapX(x,stepMM);const r=mode==='model'?modelAll(x):simDirect(x);if(!r)return{f:[1e9,1e9],cv:1e9};return{f:[-r[o1],r[o2]],cv:useC?Math.max(0,consV(r[cr])):0,extra:r}};
+  const stepMM=$('nsDisc').checked?parseFloat($('nsStep').value.replace(',','.'))||0:0,stepN=Math.max(1,Math.round(+$('nsStepN').value)||1);$('nsStepN').value=stepN;
+  const fun=x=>{if(NSSTOP)throw new Error('stop');snapX(x,stepMM,stepN);const r=mode==='model'?modelAll(x):simDirect(x);if(!r)return{f:[1e9,1e9],cv:1e9};return{f:[-r[o1],r[o2]],cv:useC?Math.max(0,consV(r[cr])):0,extra:r}};
   try{const res=await OPTIM.nsga2(fun,k,{pop:+$('nsPop').value||40,gen:+$('nsGen').value||30,seed:9,onGen:(g,P,nev)=>{NS={pop:P,mode,o1,o2,F:F.map(f=>({...f}))};
       $('nsInfo').innerHTML=`<span>Génération <b>${g}</b> / ${$('nsGen').value}</span><span>Évaluations : <b>${nev}</b>${mode==='direct'?` (simulations : ${SIMCOUNT-c0})`:' (modèle)'}</span><span>Front : <b>${P.filter(p=>p.rank===0&&p.cv===0).length}</b> points</span><span>${((performance.now()-t0)/1000).toFixed(1)} s</span>`;drawPareto()}});
     NS.front=res.front}catch(e){if(e.message!=='stop')alert(e.message)}
@@ -492,8 +493,9 @@ function energyText(){if(!NS||!NS.front||!NS.front.length){$('energyBox').innerH
     Sur le front obtenu : W de ${rng('W')} mJ, masse de fer de ${rng('mfe')} g, part de l’énergie dans l’entrefer de ${rng('pWg')} %, W/masse de ${rng('WsM')} mJ/kg ; pente moyenne ΔW/Δm ≈ <b>${nf(sl*1000,3)} mJ/kg</b>.`}
 
 /* ---------- variables discrètes (NSGA-II) ---------- */
-function snapX(x,stepMM){const F=FF();for(let j=0;j<F.length;j++){const f=F[j];let v=f.min+(x[j]+1)/2*(f.max-f.min);
-  if(f.id==='N')v=Math.round(v);else if(f.unit==='mm'&&stepMM>0)v=Math.round(v/stepMM)*stepMM;v=Math.min(f.max,Math.max(f.min,v));x[j]=2*(v-f.min)/(f.max-f.min)-1}return x}
+function snapX(x,stepMM,stepN=1){const F=FF();for(let j=0;j<F.length;j++){const f=F[j];let v=f.min+(x[j]+1)/2*(f.max-f.min);
+  // N : toujours entier, par pas de stepN spires à partir de Nmin (arrondi), sans sortir des bornes
+  if(f.id==='N'){const n0=Math.ceil(f.min-1e-9),nmax=Math.floor(f.max+1e-9);v=n0+Math.round((v-n0)/stepN)*stepN;while(v>nmax)v-=stepN;if(v<n0)v=n0;x[j]=2*(v-f.min)/(f.max-f.min)-1;continue}else if(f.unit==='mm'&&stepMM>0)v=Math.round(v/stepMM)*stepMM;v=Math.min(f.max,Math.max(f.min,v));x[j]=2*(v-f.min)/(f.max-f.min)-1}return x}
 
 /* ---------- dessin de la géométrie et des cartes de champ ---------- */
 const BMAP=1.8;
@@ -526,12 +528,12 @@ function drawGeoStrip(){const c=$('nsGeo');if(!c||!c.clientWidth)return;const [g
   g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Même échelle — de la plus légère à la plus énergétique',6,12);
   ps.forEach((o,k)=>{const cx=pw*(k+.5),cy=top+hh/2;if(o.pt===NSSEL){g.strokeStyle=css('--accent');g.lineWidth=2;g.strokeRect(pw*k+2,top-2,pw-4,H-top)}
     drawPotAt(g,o.p,cx,cy,s);g.textAlign='center';g.font='10.5px '+css('--mono');g.fillStyle=css('--fg');g.fillText(`${nf(o.pt.extra.mfe,3)} g`,cx,H-46);g.fillText(`${nf(o.pt.extra.W,3)} mJ`,cx,H-33);
-    g.fillStyle=css('--muted');g.fillText(`rn ${nf(o.p.rn,3)} · g ${nf(o.p.gap,2)}`,cx,H-19);g.fillText(`h ${nf(o.p.h,3)}`+(NS.F.some(f=>f.id==='N')?` · N ${o.p.N}`:''),cx,H-6)});
+    g.fillStyle=css('--muted');g.fillText(`rn ${nf(o.p.rn,3)} · g ${nf(o.p.gap,2)}`,cx,H-19);g.fillText(`h ${nf(o.p.h,3)}`+(NS.F.some(f=>f.id==='N')?` · N ${o.p.N} sp.`:''),cx,H-6)});
   g.font='11px '+css('--mono');g.strokeStyle=css('--fg');g.lineWidth=2;g.beginPath();g.moveTo(W-14-10*s,9);g.lineTo(W-14,9);g.stroke();g.fillStyle=css('--fg');g.textAlign='right';g.fillText('10 mm',W-18-10*s,13)}
 function drawNsField(){const c=$('nsField');if(!c||!c.clientWidth)return;const [g,W,H]=ctx(c);if(!NS||!NSSEL){g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Choisissez un point du front.',10,20);return}
   const p=nsParams(NSSEL),{sol,mec}=solveField(p),ex=extentOf(p),ext={R:ex.R+2,Z:ex.Z+2},s=Math.min((W-80)/(2*ext.R),(H-16)/(2*ext.Z)),cx=(W-60)/2,cy=H/2;
   g.fillStyle='#0b1020';g.fillRect(cx-ext.R*s,cy-ext.Z*s,2*ext.R*s,2*ext.Z*s);drawFieldSol(g,sol,mec,cx,cy,s,ext);cbar(g,W-52,22,H-44,BMAP,'|B| (T)');
-  $('nsFieldInfo').innerHTML=`Point choisi : rn = ${nf(p.rn,3)} mm, g = ${nf(p.gap,3)} mm, h = ${nf(p.h,3)} mm, N = ${p.N}, I = ${nf(p.I,3)} A — calcul ${mec?'MEC':'EF'} : L = ${nf(sol.L*1e3,4)} mH, W = ${nf(sol.W*1e3,4)} mJ, B max dans le fer = ${nf(sol.BmaxIron,3)} T.`}
+  $('nsFieldInfo').innerHTML=`Point choisi : rn = ${nf(p.rn,3)} mm, g = ${nf(p.gap,3)} mm, h = ${nf(p.h,3)} mm, N = ${p.N} spires, I = ${nf(p.I,3)} A — calcul ${mec?'MEC':'EF'} : L = ${nf(sol.L*1e3,4)} mH, W = ${nf(sol.W*1e3,4)} mJ, B max dans le fer = ${nf(sol.BmaxIron,3)} T.`}
 
 /* ---------- méthode 4 : optimisation topologique ON/OFF ---------- */
 let TOPORES={},TOPOSTOP=false;

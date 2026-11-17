@@ -103,7 +103,7 @@ fait perdre 29 % (air) à 48 % (noyau) sur L.
      énergie emmagasinée W à maximiser / masse de fer à minimiser sous B noyau ≤ 1,2 T, points colorés par la part
      de l’énergie stockée dans l’entrefer ; clic sur un point → géométrie, réponses, vérification par simulation.
 - Réponses énergétiques : W, énergie dans l’entrefer Wg, part Wg/W, W / masse de fer.
-- NSGA-II : option **variables discrètes** (N entier, cotes au pas choisi), avantage propre aux algorithmes génétiques ;
+- NSGA-II : **N toujours entier** (unité « spires », pas réglable 1, 2, 3… spires) et option cotes discrètes (pas en mm), avantage propre aux algorithmes génétiques ;
   **évolution de la bobine le long du front** (géométries à la même échelle, curseur, carte de |B| du point choisi).
 - **Méthode 4 — optimisation topologique ON/OFF** (`tools/simef/topo.js`), en EF ou en réseau de réluctances maillé :
   départ d’un optimum paramétrique (méthode 1, 2 ou 3) projeté sur une grille de cellules fer/air, sensibilité B²
