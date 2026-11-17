@@ -380,7 +380,7 @@ function draw3D(){const dpr=devicePixelRatio||1,W=cv3.clientWidth,H=cv3.clientHe
 
 /* ---------- mode : éléments finis (SimEF) ou réseau de réluctances (SimMEC) ---------- */
 function syncNav(){const ex=$('ex').value;document.querySelectorAll('.apptabs a[data-mode]').forEach(a=>{const on=a.dataset.mode===MODE;a.classList.toggle('on',on);
-    if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');a.href='magnetique.html?'+(a.dataset.mode==='mec'?'mode=mec&':'')+'ex='+ex})}
+    if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');a.href=a.getAttribute('href').split('?')[0]+'?'+(a.dataset.mode==='mec'?'mode=mec&':'')+'ex='+ex})}
 if(MODE==='mec'){$('mecOn').checked=true;$('mecOnRow').style.display='none';$('mapSrc').value='mec';$('hL').textContent='Inductance (réseau de réluctances)';
   $('hMaillage').textContent='Maillage EF (référence)';$('subtitle').textContent='Calcul d’inductance par réseau de réluctances maillé (Magnetic Equivalent Circuit) — comparaison aux éléments finis';
   document.title=document.title.replace(/—.*$/,'— Réseau de réluctances (MEC)');

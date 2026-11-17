@@ -81,6 +81,27 @@ En saturation (MEC 50×50) : I = 10 A → 7,905 / 7,963 mH (−0,7 %) ; 20 A →
 Circuits ouverts (air, noyau plongeur) : la couche d’air doit être grande (≈ 100 mm) — avec 10 mm, la condition de flux nul
 fait perdre 29 % (air) à 48 % (noyau) sur L.
 
+## SimEF — éléments finis, réseau de réluctances et plans d’expériences
+
+`SimEF/` (`https://michelhecquetig2i.github.io/commutation/SimEF/`) regroupe le calcul d’inductance, avec un sélecteur
+**EF / MEC / Plans d’expériences** en haut à gauche :
+
+- **EF** : `SimEF/?ex=pot` ; **MEC** : `SimEF/?mode=mec&ex=pot` (copies de l’onglet magnétique) ;
+- **Plans d’expériences** : `SimEF/plans.html` — optimisation paramétrique de l’inductance en pot :
+  facteurs au choix (entrefer, rayon du noyau, épaisseur et hauteur du bobinage, nombre de spires, courant), chaque
+  essai calculé par EF ou MEC ; plans factoriels 2^k et 3^k, fractionnaires 2^(k−p), Plackett-Burman, composites
+  centrés (CCF, CCC, CCI), Box-Behnken, hypercube latin, D-optimal et I-optimal (échange de Fedorov) ; critères
+  D-efficacité, I et VIF, comparaison des plans ; modèles linéaire / interactions / quadratique (option log y) avec R²,
+  R² ajusté, Q², coefficients ; surface de réponse ; optimisation sous contrainte sur le modèle et vérification par
+  simulation ; export CSV.
+
+Exemple par défaut : g ∈ [0,3 ; 2] mm, rn ∈ [9 ; 15] mm, h ∈ [25 ; 50] mm, I = 10 A, plan CCF (15 essais, 1,5 s) ;
+maximiser L / masse de fer sous B noyau ≤ 1,2 T → g = 1,20 mm, rn = 9 mm, h = 25 mm, L = 3,16 mH ; modèle validé
+par simulation à 0,2 %.
+
+Dossier généré : modifier `magnetique.html`, `fem-axi.js`, `mec-axi.js` ou `tools/simef/` puis
+`python3 tools/build_simef.py`.
+
 ## Tutoriel vidéo
 
 Le bouton **▶ Tutoriel** de l’en-tête ouvre trois courtes vidéos (fichiers dans `tutoriel/`) :

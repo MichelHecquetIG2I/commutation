@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>SimEF — Plans d’expériences et optimisation paramétrique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#e9edf1;--panel:#f6f8fa;--panel2:#ffffff;--line:#cdd5dd;--fg:#14202b;--muted:#5d6b79;--accent:#1c58e6;--accent-fg:#fff;--canvas:#fbfcfd;--good:#1e8a52;--bad:#c23a28;--warn:#b7791f;
+  --ui:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1319;--panel:#141c24;--panel2:#18222c;--line:#27343f;--fg:#dce6ee;--muted:#8a9aa8;--accent:#6ea2ff;--accent-fg:#0b1220;--canvas:#10171e;--good:#4fd18b;--bad:#ff7a66;--warn:#f2b84b;color-scheme:dark}}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 var(--ui)}
+button,input,select{font:inherit;color:inherit}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.brand{font-weight:600;letter-spacing:.02em;font-size:15px;display:flex;align-items:center;gap:8px}
+.brand i{display:inline-block;width:18px;height:18px;border:2px solid var(--accent);border-radius:3px}
+.apptabs{display:flex;gap:2px;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:2px}
+.apptabs a{padding:4px 12px;border-radius:5px;text-decoration:none;color:var(--muted);font-weight:500}
+.apptabs a.on{background:var(--panel2);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.apptabs a:not(.on):hover{color:var(--fg)}
+.apptabs.radio a{display:flex;align-items:center;gap:6px}.apptabs.radio a::before{content:"";width:11px;height:11px;border-radius:50%;border:2px solid var(--muted);box-sizing:border-box}
+.apptabs.radio a.on::before{border:3.5px solid var(--accent)}
+.hint{color:var(--muted);font-size:12px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
+.btn:disabled{opacity:.5;cursor:default}
+.main{display:grid;grid-template-columns:340px minmax(0,1fr);min-height:calc(100% - 50px)}
+@media (max-width:980px){.main{grid-template-columns:1fr}}
+.side{background:var(--panel);border-right:1px solid var(--line);padding:12px 14px}
+.content{padding:14px;display:grid;gap:14px;align-content:start}
+h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px;font-weight:600}
+h3:first-child{margin-top:0}
+h3 .n{display:inline-block;width:17px;height:17px;border-radius:50%;background:var(--accent);color:var(--accent-fg);text-align:center;line-height:17px;font-size:10px;margin-right:6px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.card h2{font-size:14px;margin:0 0 8px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 .sp{flex:1}
+.f{display:grid;grid-template-columns:1fr 120px;align-items:center;gap:6px;margin:4px 0}
+input.v,select.v{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-family:var(--mono);text-align:right}
+select.v{text-align:left;font-family:var(--ui)}
+table.fac{width:100%;border-collapse:collapse;font-size:12px}
+table.fac td,table.fac th{padding:2px 3px;border-bottom:1px solid var(--line)}
+table.fac th{color:var(--muted);font-weight:600;text-align:left}
+table.fac input[type=number]{width:62px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-family:var(--mono);text-align:right}
+.tbl{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:6px}
+table.res{border-collapse:collapse;font:12px var(--mono);width:100%}
+table.res th{position:sticky;top:0;background:var(--panel);font-family:var(--ui);font-weight:600;color:var(--muted);padding:4px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.res td{padding:3px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.res td.c{color:var(--muted)}table.res tr.run td{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+table.res tr.bad td{color:var(--bad)}
+.kpi{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.kpi span{border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--panel);font-size:12px}.kpi b{font-family:var(--mono)}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:6px 0}.bar i{display:block;height:100%;background:var(--accent);width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:1200px){.two{grid-template-columns:1fr}}
+canvas.ch{width:100%;height:260px;display:block;background:var(--canvas);border:1px solid var(--line);border-radius:6px}
+canvas.big{height:380px}
+.ctl{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:4px 0 8px}
+.ctl label{display:flex;align-items:center;gap:6px}
+.sl{display:grid;grid-template-columns:150px 1fr 90px;gap:8px;align-items:center;font-size:12px;margin:2px 0}
+.sl output{font-family:var(--mono);text-align:right}
+.ok{color:var(--good)}.ko{color:var(--bad)}.wa{color:var(--warn)}
+details{margin-top:8px}summary{cursor:pointer;color:var(--accent)}details p,details li{font-size:12.5px}
+code{font-family:var(--mono);font-size:12px}
+</style></head>
+<body>
+<header class="top">
+  <div class="brand"><i></i>SimEF</div>
+  <nav class="apptabs radio" aria-label="Mode"><a href="index.html" title="Calcul d’inductance par éléments finis">EF</a><a href="index.html?mode=mec" title="Réseau de réluctances (Magnetic Equivalent Circuit)">MEC</a><a class="on" href="plans.html" aria-current="page" title="Optimisation paramétrique par plans d’expériences">Plans d’expériences</a></nav>
+  <span class="hint">Optimisation paramétrique d’une inductance en pot avec entrefer (calcul EF ou MEC à chaque essai)</span>
+</header>
+<div class="main">
+<aside class="side">
+  <h3><span class="n">1</span>Facteurs</h3>
+  <table class="fac" id="fac"><thead><tr><th></th><th>Facteur</th><th>min</th><th>max</th><th>fixe</th></tr></thead><tbody></tbody></table>
+  <div class="hint" id="kInfo"></div>
+  <h3><span class="n">2</span>Solveur</h3>
+  <div class="f"><label for="solver">Calcul de chaque essai</label><select class="v" id="solver"><option value="ef1">EF, maillage moyen</option><option value="ef2">EF, maillage grossier</option><option value="mec50">MEC 50 × 50</option><option value="mec30">MEC 30 × 30</option></select></div>
+  <div class="f"><label for="mat">Fer</label><select class="v" id="mat"><option value="bh">B(H) non linéaire</option><option value="lineaire">Linéaire µr = 2000</option></select></div>
+  <div class="hint">Pot fermé : noyau central de rayon rn (entrefer g au centre), bobinage de rᵢ = rn + 1 mm à rₑ = rᵢ + e, hauteur h, cylindre extérieur et flasques de même section que le noyau.</div>
+  <h3><span class="n">3</span>Plan d’expériences</h3>
+  <div class="f"><label for="design">Type de plan</label><select class="v" id="design">
+    <optgroup label="Criblage (modèle linéaire)"><option value="full2">Factoriel complet 2^k</option><option value="frac">Factoriel fractionnaire 2^(k−p)</option><option value="pb12">Plackett-Burman (12 essais)</option></optgroup>
+    <optgroup label="Surface de réponse (quadratique)"><option value="ccf" selected>Composite centré à faces centrées (CCF)</option><option value="ccc">Composite centré rotatable (CCC)</option><option value="cci">Composite centré inscrit (CCI)</option><option value="bbd">Box-Behnken</option><option value="full3">Factoriel complet 3^k</option></optgroup>
+    <optgroup label="Remplissage d’espace"><option value="lhs">Hypercube latin (maximin)</option></optgroup>
+    <optgroup label="Plans optimaux"><option value="dopt">D-optimal</option><option value="iopt">I-optimal</option></optgroup></select></div>
+  <div class="f" id="rowFrac"><label for="fracv">Fraction</label><select class="v" id="fracv"></select></div>
+  <div class="f" id="rowN"><label for="nruns">Nombre d’essais</label><input class="v" id="nruns" type="number" min="3" max="80" value="12"></div>
+  <div class="f" id="rowModelOpt"><label for="optModel">Modèle visé</label><select class="v" id="optModel"><option value="quad">Quadratique</option><option value="int">Interactions</option><option value="lin">Linéaire</option></select></div>
+  <div class="f" id="rowNc"><label for="nc">Points au centre</label><input class="v" id="nc" type="number" min="0" max="5" value="1"></div>
+  <div class="hint" id="designHint"></div>
+  <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn primary" id="gen">Générer le plan</button><button class="btn" id="cmpDesigns" title="Compare D-efficacité, critère I et VIF de tous les plans disponibles">Comparer les plans</button></div>
+  <details><summary>Rappels sur les plans</summary>
+    <ul>
+      <li><b>2^k, fractionnaires, Plackett-Burman</b> : 2 niveaux, orthogonaux ; estiment les effets principaux (et interactions selon la résolution). Criblage.</li>
+      <li><b>Composites centrés</b> : 2^k + 2k points axiaux (±α) + centre. CCF : α = 1 (reste dans le domaine) ; CCC : α = n_f^¼ (rotatable, sort du domaine) ; CCI : CCC réduit pour que les axiaux soient aux bornes.</li>
+      <li><b>Box-Behnken</b> : 3 niveaux, aucun essai aux sommets du domaine.</li>
+      <li><b>Hypercube latin</b> : n niveaux par facteur, répartition uniforme (maximin) ; utile pour métamodèles.</li>
+      <li><b>D-optimal</b> : maximise det(XᵀX) (précision des coefficients) ; <b>I-optimal</b> : minimise la variance moyenne de prédiction sur le domaine. Échange de Fedorov sur une grille 3^k.</li>
+      <li>Les calculs étant déterministes, répéter le centre n’apporte pas d’information : 1 point au centre suffit (utile pour détecter une courbure).</li>
+    </ul>
+  </details>
+</aside>
+<main class="content">
+  <section class="card">
+    <h2>Plan d’expériences <span class="sp"></span><button class="btn primary" id="runAll" disabled>Lancer les simulations</button><button class="btn" id="stop" disabled>Arrêter</button><button class="btn" id="csv" disabled>Exporter CSV</button></h2>
+    <div class="kpi" id="crit"><span class="hint">Choisissez les facteurs et le type de plan, puis « Générer le plan ».</span></div>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="tbl"><table class="res" id="tab"></table></div>
+    <div id="cmpBox"></div>
+  </section>
+  <section class="card" id="modelCard">
+    <h2>Modèle de régression <span class="sp"></span></h2>
+    <div class="ctl"><label>Réponse <select class="v" id="resp" style="width:auto"></select></label>
+      <label>Modèle <select class="v" id="model" style="width:auto"><option value="lin">Linéaire</option><option value="int">Linéaire + interactions</option><option value="quad" selected>Quadratique (surface de réponse)</option></select></label>
+      <label><input type="checkbox" id="logy">Modéliser log(y)</label></div>
+    <div class="kpi" id="stats"><span class="hint">Lancez les simulations pour ajuster un modèle.</span></div>
+    <div class="two"><div><div class="hint">Coefficients (variables codées dans [−1, 1]) — barres pleines : |t| > 2</div><canvas class="ch" id="eff"></canvas></div>
+      <div><div class="hint">Valeurs prédites par le modèle en fonction des valeurs simulées</div><canvas class="ch" id="pvo"></canvas></div></div>
+    <details><summary>Équation du modèle</summary><p><code id="eq"></code></p></details>
+  </section>
+  <section class="card">
+    <h2>Surface de réponse</h2>
+    <div class="ctl"><label>Axe horizontal <select class="v" id="fx" style="width:auto"></select></label><label>Axe vertical <select class="v" id="fy" style="width:auto"></select></label></div>
+    <div id="sliders"></div>
+    <canvas class="ch big" id="surf"></canvas>
+  </section>
+  <section class="card">
+    <h2>Optimisation sur le modèle</h2>
+    <div class="ctl"><label><select class="v" id="dir" style="width:auto"><option value="max">Maximiser</option><option value="min">Minimiser</option></select></label><label><select class="v" id="obj" style="width:auto"></select></label></div>
+    <div class="ctl"><label><input type="checkbox" id="useC" checked>sous la contrainte</label><select class="v" id="cresp" style="width:auto"></select><select class="v" id="cop" style="width:auto"><option value="le">≤</option><option value="ge">≥</option></select><input class="v" id="cval" style="width:90px" value="1.2"></div>
+    <div style="display:flex;gap:6px"><button class="btn primary" id="optim" disabled>Optimiser</button><button class="btn" id="verify" disabled>Vérifier par simulation</button></div>
+    <div id="optRes" style="margin-top:8px"></div>
+  </section>
+</main></div>
+<script src="fem-axi.js"></script>
+<script src="mec-axi.js"></script>
+<script src="doe.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const nf=(v,d=4)=>isFinite(v)?(+v).toLocaleString('fr-FR',{maximumSignificantDigits:d}):'—';
+
+/* ---------- facteurs et réponses ---------- */
+const FACT=[
+  {id:'g', sym:'g', name:'Entrefer', unit:'mm', min:0.3, max:2, fix:1, on:true},
+  {id:'rn',sym:'rn',name:'Rayon du noyau', unit:'mm', min:9, max:15, fix:14, on:true},
+  {id:'eb',sym:'e', name:'Épaisseur du bobinage', unit:'mm', min:6, max:14, fix:10, on:false},
+  {id:'h', sym:'h', name:'Hauteur du bobinage', unit:'mm', min:25, max:50, fix:40, on:true},
+  {id:'N', sym:'N', name:'Nombre de spires', unit:'', min:50, max:200, fix:100, on:false},
+  {id:'I', sym:'I', name:'Courant', unit:'A', min:1, max:20, fix:10, on:false}];
+const RESP=[
+  {id:'L', name:'Inductance L', unit:'mH', d:4},
+  {id:'B', name:'B moyen dans le noyau', unit:'T', d:3},
+  {id:'mfe',name:'Masse de fer', unit:'g', d:4},
+  {id:'W', name:'Énergie magnétique W', unit:'mJ', d:4},
+  {id:'LsM',name:'L / masse de fer', unit:'µH/g', d:4},
+  {id:'J', name:'Densité de courant J', unit:'A/mm²', d:3}];
+const RHO_FE=7650;
+
+function buildFactTable(){const tb=$('fac').querySelector('tbody');tb.innerHTML='';
+  FACT.forEach((f,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td><input type="checkbox" data-i="${i}" class="fon" ${f.on?'checked':''} aria-label="${f.name}"></td><td>${f.name} <span class="hint">${f.sym}${f.unit?' ('+f.unit+')':''}</span></td>
+    <td><input type="number" step="any" data-i="${i}" data-k="min" value="${f.min}"></td><td><input type="number" step="any" data-i="${i}" data-k="max" value="${f.max}"></td><td><input type="number" step="any" data-i="${i}" data-k="fix" value="${f.fix}"></td>`;tb.appendChild(tr)});
+  tb.querySelectorAll('input').forEach(el=>el.onchange=()=>{const f=FACT[+el.dataset.i];if(el.classList.contains('fon'))f.on=el.checked;else f[el.dataset.k]=parseFloat(el.value);refreshDesignOptions()})}
+const active=()=>FACT.filter(f=>f.on);
+
+/* ---------- géométrie et simulation d'un essai ---------- */
+function paramsFor(vals){ // vals : {g, rn, eb, h, N, I} en unités réelles
+  const v={};FACT.forEach(f=>v[f.id]=f.fix);Object.assign(v,vals);
+  const ri=v.rn+1, re=ri+v.eb, sol=$('solver').value;
+  return {core:'pot',N:Math.round(v.N),I:v.I,rn:v.rn,ri,re,h:v.h,gap:v.g,jeu:1,mur:2000,Js:1.7,material:$('mat').value,
+    ds:sol==='ef2'?2:1,Rmax:400,air:30,nr:sol==='mec30'?30:50,nz:sol==='mec30'?30:50,_v:v}}
+function valid(p){if(!(p.gap>0.05&&p.gap<p.h-2))return 'entrefer hors domaine';if(!(p.rn>1))return 'rayon de noyau trop petit';if(!(p.re>p.ri+0.5))return 'bobinage trop mince';if(!(p.h>4))return 'hauteur trop faible';if(!(p.N>=1&&p.I>0))return 'N ou I invalide';return null}
+function simulate(p){
+  const sol=$('solver').value,mec=sol.startsWith('mec');let L,Bc,W;
+  if(mec){const r=MEC.solve(p),g=r.grid,ic=r.regs.findIndex(q=>q.name==='Noyau central');let s=0,w=0;
+    for(let i=0;i<g.nr;i++)for(let k=0;k<g.nz;k++){if(g.cell[i*g.nz+k]!==ic)continue;const a=(g.R[i+1]**2-g.R[i]**2)*(g.Z[k+1]-g.Z[k]);s+=r.Bmod[i*g.nz+k]*a;w+=a}
+    L=r.L;Bc=s/w;W=r.W}
+  else{const r=FEM.solve(p),ic=r.regs.findIndex(q=>q.name==='Noyau central');let s=0,w=0;
+    for(let e=0;e<r.G.ne;e++){if(r.m.reg[e]!==ic)continue;const a=r.G.area[e]*r.G.rc[e];s+=r.B.Bm[e]*a;w+=a}L=r.L;Bc=s/w;W=r.W}
+  let vfe=0;for(const q of FEM.buildGeometry(p))if(q.mat==='iron')vfe+=Math.PI*(q.r1*q.r1-q.r0*q.r0)*(q.z1-q.z0)*2;
+  const mfe=vfe*1e-9*RHO_FE*1000;
+  return {L:L*1e3,B:Bc,mfe,W:W*1e3,LsM:L*1e6/mfe,J:p.N*p.I/((p.re-p.ri)*p.h)}}
+
+/* ---------- génération du plan ---------- */
+let PLAN=null; // {D (codé), type, k, facts, runs:[{x, real, res, err}]}
+function refreshDesignOptions(){const k=active().length,t=$('design').value;
+  $('kInfo').innerHTML=`<b>${k}</b> facteur${k>1?'s':''} actif${k>1?'s':''} (2 à 6). Les autres restent à leur valeur « fixe ».`;
+  const fr=DOE.FRAC[k]||[];$('fracv').innerHTML=fr.map((f,i)=>`<option value="${i}">${f.label} — rés. ${f.res}, ${2**(k-f.p)} essais</option>`).join('')||'<option>—</option>';
+  $('rowFrac').style.display=t==='frac'?'':'none';$('rowN').style.display=['lhs','dopt','iopt'].includes(t)?'':'none';
+  $('rowModelOpt').style.display=['dopt','iopt'].includes(t)?'':'none';$('rowNc').style.display=['ccf','ccc','cci','bbd'].includes(t)?'':'none';
+  const p=DOE.terms(k,$('optModel').value).length;
+  const H={full2:`${2**k} essais, 2 niveaux.`,frac:fr.length?'Moitié, quart… du plan complet : certains effets sont confondus (alias).':'Pas de fraction usuelle pour k = '+k+'.',pb12:'12 essais, effets principaux seulement (jusqu’à 11 facteurs).',
+    ccf:'Points axiaux sur les faces (α = 1) : 3 niveaux.',ccc:'Rotatable : les points axiaux sortent du domaine (α = '+Math.pow(k>=5?2**(k-1):2**k,.25).toFixed(3)+') — vérifiez qu’ils restent physiques.',cci:'Composite rotatable réduit pour rester dans le domaine (5 niveaux).',
+    bbd:'3 niveaux, pas d’essai aux sommets.',full3:`${3**k} essais, 3 niveaux.`,lhs:'n niveaux par facteur, maximin.',dopt:`Au moins ${p} essais pour le modèle visé (${p} coefficients).`,iopt:`Au moins ${p} essais pour le modèle visé (${p} coefficients).`};
+  $('designHint').textContent=H[t]||''}
+function makeDesign(t,k,opt={}){const nc=opt.nc??+$('nc').value,n=opt.n??+$('nruns').value,mo=opt.model??$('optModel').value;
+  switch(t){case 'full2':return DOE.full2(k);case 'frac':return DOE.frac(k,opt.fv??+$('fracv').value);case 'pb12':return DOE.pb12(k);
+    case 'ccf':case 'ccc':case 'cci':return DOE.ccd(k,t,nc).D;case 'bbd':return k>=3?DOE.bbd(k,nc):null;case 'full3':return DOE.full3(k);
+    case 'lhs':return DOE.lhs(k,n,7);case 'dopt':return DOE.optimal(k,n,DOE.terms(k,mo),'D',3,11,k>=5?3:6);case 'iopt':return DOE.optimal(k,n,DOE.terms(k,mo),'I',3,11,k>=5?2:5)}}
+const DNAME={full2:'Factoriel 2^k',frac:'Fractionnaire',pb12:'Plackett-Burman',ccf:'Composite CCF',ccc:'Composite CCC',cci:'Composite CCI',bbd:'Box-Behnken',full3:'Factoriel 3^k',lhs:'Hypercube latin',dopt:'D-optimal',iopt:'I-optimal'};
+function generate(){const F=active(),k=F.length;if(k<2||k>6){alert('Choisissez de 2 à 6 facteurs.');return}
+  for(const f of F)if(!(f.max>f.min)){alert('Bornes invalides pour '+f.name);return}
+  const t=$('design').value;$('status');let D;
+  try{D=makeDesign(t,k)}catch(e){D=null}
+  if(!D){$('crit').innerHTML='<span class="ko">Ce plan n’est pas disponible pour '+k+' facteurs (ou nombre d’essais insuffisant).</span>';return}
+  PLAN={type:t,k,facts:F.map(f=>({...f})),D,runs:D.map(x=>({x,real:x.map((c,j)=>F[j].min+(c+1)/2*(F[j].max-F[j].min)),res:null,err:null}))};
+  FITS={};showCriteria();renderTable();$('runAll').disabled=false;$('csv').disabled=true;$('optim').disabled=true;$('verify').disabled=true;$('prog').style.width='0';
+  $('stats').innerHTML='<span class="hint">Lancez les simulations pour ajuster un modèle.</span>';setupSurfaceControls();drawAll()}
+function showCriteria(){const T=t=>DOE.terms(PLAN.k,t),c=[['lin','linéaire'],['int','interactions'],['quad','quadratique']].map(([m,l])=>{const r=DOE.criteria(PLAN.D,T(m));
+    return `<span>${l} (${T(m).length} coef.) : ${r.estimable?`D-eff <b>${r.Deff.toFixed(1)} %</b> · I <b>${r.I.toFixed(3)}</b> · VIF max <b>${isFinite(r.maxVIF)?r.maxVIF.toFixed(2):'∞'}</b>`:'<span class="ko">non estimable</span>'}</span>`});
+  const out=PLAN.runs.filter(r=>r.x.some(v=>Math.abs(v)>1+1e-9)).length;
+  $('crit').innerHTML=`<span><b>${DNAME[PLAN.type]}</b> · ${PLAN.k} facteurs · <b>${PLAN.D.length}</b> essais</span>`+c.join('')+(out?`<span class="wa">${out} essai(s) hors des bornes (points axiaux)</span>`:'')}
+function renderTable(){if(!PLAN)return;const F=PLAN.facts;
+  let h='<tr><th>#</th>'+F.map(f=>`<th>${f.sym} <span class="hint">codé</span></th>`).join('')+F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')+RESP.map(r=>`<th>${r.name.split(' ')[0]==='Inductance'?'L':r.id==='B'?'B noyau':r.id==='mfe'?'m fer':r.id==='W'?'W':r.id==='LsM'?'L/m':'J'} (${r.unit})</th>`).join('')+'</tr>';
+  PLAN.runs.forEach((r,i)=>{h+=`<tr class="${r.err?'bad':''}${r.running?' run':''}"><td>${i+1}</td>`+r.x.map(v=>`<td class="c">${(+v.toFixed(3)).toLocaleString('fr-FR')}</td>`).join('')+r.real.map(v=>`<td>${nf(v)}</td>`).join('')+
+    RESP.map(q=>`<td>${r.err?(q.id==='L'?r.err:''):r.res?nf(r.res[q.id],q.d):''}</td>`).join('')+'</tr>'});
+  $('tab').innerHTML=h}
+
+/* ---------- lancement des simulations ---------- */
+let STOP=false;
+async function runAll(){if(!PLAN)return;STOP=false;$('runAll').disabled=true;$('stop').disabled=false;$('gen').disabled=true;const n=PLAN.runs.length,t0=performance.now();
+  for(let i=0;i<n;i++){if(STOP)break;const r=PLAN.runs[i];if(r.res){continue}r.running=true;renderTable();await new Promise(z=>setTimeout(z,0));
+    const vals={};PLAN.facts.forEach((f,j)=>vals[f.id]=r.real[j]);const p=paramsFor(vals),bad=valid(p);
+    if(bad)r.err=bad;else try{r.res=simulate(p)}catch(e){r.err='échec : '+e.message}
+    r.running=false;$('prog').style.width=((i+1)/n*100)+'%'}
+  renderTable();$('runAll').disabled=false;$('stop').disabled=true;$('gen').disabled=false;$('csv').disabled=false;
+  $('crit').insertAdjacentHTML('beforeend',`<span>Simulations : <b>${PLAN.runs.filter(r=>r.res).length}/${n}</b> en ${((performance.now()-t0)/1000).toFixed(1)} s</span>`);refit()}
+
+/* ---------- modèles ---------- */
+let FITS={};
+function data(rid){const ok=PLAN.runs.filter(r=>r.res&&isFinite(r.res[rid]));const lg=$('logy').checked;return {D:ok.map(r=>r.x),y:ok.map(r=>lg?Math.log(Math.max(r.res[rid],1e-12)):r.res[rid]),lg}}
+function refit(){if(!PLAN||!PLAN.runs.some(r=>r.res))return;const T=DOE.terms(PLAN.k,$('model').value);FITS={};
+  for(const q of RESP){const d=data(q.id);const f=DOE.fit(d.D,d.y,T);f.T=T;f.lg=d.lg;FITS[q.id]=f}
+  showStats();$('optim').disabled=!FITS.L||!FITS.L.ok;drawAll()}
+const pred=(rid,x)=>{const f=FITS[rid];if(!f||!f.ok)return NaN;const v=DOE.predict(f.beta,f.T,x);return f.lg?Math.exp(v):v};
+function showStats(){const rid=$('resp').value,f=FITS[rid],q=RESP.find(r=>r.id===rid);
+  if(!f||!f.ok){$('stats').innerHTML=`<span class="ko">Modèle non estimable : ${f?f.n:0} essais pour ${f?f.p:'?'} coefficients. Choisissez un modèle plus simple ou un plan plus riche.</span>`;$('eq').textContent='';return}
+  const cls=v=>v>0.95?'ok':v>0.8?'wa':'ko';
+  $('stats').innerHTML=`<span>R² <b class="${cls(f.R2)}">${f.R2.toFixed(4)}</b></span><span>R² ajusté <b>${isFinite(f.R2adj)?f.R2adj.toFixed(4):'—'}</b></span><span>Q² (validation croisée) <b class="${isFinite(f.Q2)?cls(f.Q2):''}">${isFinite(f.Q2)?f.Q2.toFixed(4):'— (plan saturé)'}</b></span><span>RMSE <b>${nf(f.rmse,3)}</b> ${f.lg?'(log)':q.unit}</span><span>ddl résiduels <b>${f.dof}</b></span>`+
+    (isFinite(f.Q2)&&f.Q2<0.7?`<span class="wa">Q² faible : le modèle prédit mal hors des essais. Essayez « Modéliser log(y) », un modèle quadratique, plus d’essais ou un domaine plus étroit.</span>`:'');
+  const names=PLAN.facts.map(x=>x.sym);$('eq').textContent=(f.lg?'ln ':'')+q.id+' = '+f.beta.map((b,j)=>(j?(b>=0?' + ':' − '):'')+(j?Math.abs(b):b).toPrecision(4)+(j?'·'+DOE.termName(f.T[j],names):'')).join('')+'   (variables codées)'}
+
+/* ---------- graphiques ---------- */
+function ctx(c){const dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;c.width=W*dpr;c.height=H*dpr;const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);g.font='11px '+css('--mono');return [g,W,H]}
+function drawEffects(){const [g,W,H]=ctx($('eff'));const f=FITS[$('resp').value];if(!f||!f.ok)return;const names=PLAN.facts.map(x=>x.sym);
+  const items=f.beta.map((b,j)=>({b,t:f.t[j],n:DOE.termName(f.T[j],names)})).slice(1).sort((a,b)=>Math.abs(b.b)-Math.abs(a.b));
+  const m=Math.max(...items.map(i=>Math.abs(i.b)))||1,lw=70,bh=Math.min(18,(H-10)/items.length),x0=lw+(W-lw-10)/2,s=(W-lw-20)/2/m;
+  g.strokeStyle=css('--line');g.beginPath();g.moveTo(x0,4);g.lineTo(x0,H-4);g.stroke();
+  items.forEach((it,i)=>{const y=6+i*bh,sig=!isFinite(it.t)||Math.abs(it.t)>2,col=it.b>=0?css('--accent'):css('--bad');g.fillStyle=col;g.globalAlpha=sig?0.9:0.3;
+    g.fillRect(Math.min(x0,x0+it.b*s),y,Math.abs(it.b*s),bh-4);g.globalAlpha=1;g.fillStyle=css('--fg');g.textAlign='right';g.fillText(it.n,lw-6,y+bh-7)})}
+function drawPvO(){const [g,W,H]=ctx($('pvo'));const rid=$('resp').value,f=FITS[rid];if(!f||!f.ok)return;
+  const ys=f.yhat.map((v,i)=>[f.lg?Math.exp(f.yhat[i]+f.res[i]):f.yhat[i]+f.res[i],f.lg?Math.exp(v):v]);const all=ys.flat(),lo=Math.min(...all),hi=Math.max(...all),pad=(hi-lo)*0.06||1,a=lo-pad,b=hi+pad;
+  const P=40,X=v=>P+(v-a)/(b-a)*(W-P-10),Y=v=>H-24-(v-a)/(b-a)*(H-34);
+  g.strokeStyle=css('--line');g.strokeRect(P,10,W-P-10,H-34);g.setLineDash([4,3]);g.strokeStyle=css('--muted');g.beginPath();g.moveTo(X(a),Y(a));g.lineTo(X(b),Y(b));g.stroke();g.setLineDash([]);
+  g.fillStyle=css('--accent');ys.forEach(([o,p])=>{g.beginPath();g.arc(X(o),Y(p),3.5,0,7);g.fill()});
+  g.fillStyle=css('--muted');g.textAlign='center';g.fillText('simulé ('+RESP.find(r=>r.id===rid).unit+')',(W+P)/2,H-6);g.textAlign='left';g.fillText(nf(a,3),P,H-12);g.textAlign='right';g.fillText(nf(b,3),W-10,H-12);g.save();g.translate(12,H/2);g.rotate(-Math.PI/2);g.textAlign='center';g.fillText('prédit',0,0);g.restore()}
+const CM=[[0,[48,18,59]],[.15,[70,107,227]],[.3,[40,170,245]],[.45,[26,228,182]],[.6,[114,254,94]],[.72,[200,239,52]],[.84,[250,186,57]],[.93,[244,98,29]],[1,[180,24,4]]];
+const cmap=t=>{t=Math.max(0,Math.min(1,t));for(let i=1;i<CM.length;i++)if(t<=CM[i][0]){const [a,ca]=CM[i-1],[b,cb]=CM[i],u=(t-a)/(b-a);return `rgb(${ca.map((v,k)=>Math.round(v+(cb[k]-v)*u)).join(',')})`}};
+let SL=[],OPT=null;
+function setupSurfaceControls(){if(!PLAN)return;const F=PLAN.facts,o=F.map((f,j)=>`<option value="${j}">${f.name} (${f.sym})</option>`).join('');$('fx').innerHTML=o;$('fy').innerHTML=o;$('fx').value=0;$('fy').value=1;
+  SL=F.map(()=>0);buildSliders()}
+function buildSliders(){const F=PLAN.facts,ix=+$('fx').value,iy=+$('fy').value;$('sliders').innerHTML=F.map((f,j)=>j===ix||j===iy?'':`<div class="sl"><span>${f.name} (${f.sym})</span><input type="range" min="-1" max="1" step="0.05" value="${SL[j]}" data-j="${j}"><output id="o${j}">${nf(f.min+(SL[j]+1)/2*(f.max-f.min))} ${f.unit}</output></div>`).join('');
+  $('sliders').querySelectorAll('input').forEach(el=>el.oninput=()=>{const j=+el.dataset.j;SL[j]=+el.value;const f=F[j];$('o'+j).textContent=nf(f.min+(SL[j]+1)/2*(f.max-f.min))+' '+f.unit;drawSurf()})}
+function drawSurf(){const [g,W,H]=ctx($('surf'));if(!PLAN)return;const rid=$('resp').value,f=FITS[rid],F=PLAN.facts,ix=+$('fx').value,iy=+$('fy').value,q=RESP.find(r=>r.id===rid);
+  const P={l:56,r:90,t:12,b:40},w=W-P.l-P.r,h=H-P.t-P.b;
+  const X=c=>P.l+(c+1)/2*w,Y=c=>P.t+h-(c+1)/2*h;
+  g.fillStyle=css('--fg');g.textAlign='center';
+  const tick=(j,c)=>{const ff=F[j];return nf(ff.min+(c+1)/2*(ff.max-ff.min),3)};
+  for(const c of [-1,-0.5,0,0.5,1]){g.fillStyle=css('--muted');g.textAlign='center';g.fillText(tick(ix,c),X(c),H-P.b+14);g.textAlign='right';g.fillText(tick(iy,c),P.l-6,Y(c)+4)}
+  g.fillStyle=css('--fg');g.textAlign='center';g.fillText(F[ix].name+' '+F[ix].sym+(F[ix].unit?' ('+F[ix].unit+')':''),P.l+w/2,H-6);g.save();g.translate(14,P.t+h/2);g.rotate(-Math.PI/2);g.fillText(F[iy].name+' '+F[iy].sym+(F[iy].unit?' ('+F[iy].unit+')':''),0,0);g.restore();
+  if(!f||!f.ok){g.fillStyle=css('--muted');g.fillText('Modèle non disponible',P.l+w/2,P.t+h/2)}
+  else{const n=70,Z=[];let lo=Infinity,hi=-Infinity;
+    for(let a=0;a<=n;a++){Z.push([]);for(let b=0;b<=n;b++){const x=SL.slice();x[ix]=-1+2*b/n;x[iy]=-1+2*a/n;const v=pred(rid,x);Z[a].push(v);lo=Math.min(lo,v);hi=Math.max(hi,v)}}
+    const cw=w/n,chh=h/n;for(let a=0;a<n;a++)for(let b=0;b<n;b++){const v=(Z[a][b]+Z[a+1][b]+Z[a][b+1]+Z[a+1][b+1])/4;g.fillStyle=cmap((v-lo)/(hi-lo||1));g.fillRect(P.l+b*cw,P.t+h-(a+1)*chh,cw+.6,chh+.6)}
+    // isovaleurs (carrés marchants simplifiés : segments sur triangles)
+    g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=1;g.beginPath();const NL=10;
+    for(let a=0;a<n;a++)for(let b=0;b<n;b++){const c=[[b,a,Z[a][b]],[b+1,a,Z[a][b+1]],[b+1,a+1,Z[a+1][b+1]],[b,a+1,Z[a+1][b]]];
+      for(const T of [[c[0],c[1],c[2]],[c[0],c[2],c[3]]])for(let L=1;L<NL;L++){const lv=lo+(hi-lo)*L/NL,pts=[];for(let u=0;u<3;u++){const v=(u+1)%3,A=T[u],B=T[v];if((A[2]-lv)*(B[2]-lv)<0){const t=(lv-A[2])/(B[2]-A[2]);pts.push([A[0]+t*(B[0]-A[0]),A[1]+t*(B[1]-A[1])])}}
+        if(pts.length===2){g.moveTo(P.l+pts[0][0]*cw,P.t+h-pts[0][1]*chh);g.lineTo(P.l+pts[1][0]*cw,P.t+h-pts[1][1]*chh)}}}g.stroke();
+    // contrainte (frontière) si activée
+    if($('useC').checked&&FITS[$('cresp').value]&&FITS[$('cresp').value].ok){const cv=parseFloat($('cval').value.replace(',','.')),cr=$('cresp').value;g.strokeStyle=css('--bad');g.lineWidth=2.2;g.setLineDash([6,3]);g.beginPath();
+      const C=[];for(let a=0;a<=n;a++){C.push([]);for(let b=0;b<=n;b++){const x=SL.slice();x[ix]=-1+2*b/n;x[iy]=-1+2*a/n;C[a].push(pred(cr,x)-cv)}}
+      for(let a=0;a<n;a++)for(let b=0;b<n;b++){const c=[[b,a,C[a][b]],[b+1,a,C[a][b+1]],[b+1,a+1,C[a+1][b+1]],[b,a+1,C[a+1][b]]];for(const T of [[c[0],c[1],c[2]],[c[0],c[2],c[3]]]){const pts=[];for(let u=0;u<3;u++){const v=(u+1)%3,A=T[u],B=T[v];if(A[2]*B[2]<0){const t=-A[2]/(B[2]-A[2]);pts.push([A[0]+t*(B[0]-A[0]),A[1]+t*(B[1]-A[1])])}}
+        if(pts.length===2){g.moveTo(P.l+pts[0][0]*cw,P.t+h-pts[0][1]*chh);g.lineTo(P.l+pts[1][0]*cw,P.t+h-pts[1][1]*chh)}}}g.stroke();g.setLineDash([])}
+    // barre de couleurs
+    for(let i=0;i<=40;i++){g.fillStyle=cmap(i/40);g.fillRect(W-P.r+14,P.t+h-(i+1)*h/41,14,h/41+1)}g.fillStyle=css('--fg');g.textAlign='left';g.fillText(nf(hi,3),W-P.r+32,P.t+8);g.fillText(nf(lo,3),W-P.r+32,P.t+h);g.fillText(q.unit,W-P.r+32,P.t+h/2)}
+  // points du plan (projection)
+  g.lineWidth=1.5;PLAN.runs.forEach(r=>{const x=r.x[ix],y=r.x[iy];if(Math.abs(x)>1.001||Math.abs(y)>1.001)return;g.fillStyle=r.err?css('--bad'):'#fff';g.strokeStyle='#111';g.beginPath();g.arc(X(x),Y(y),4,0,7);g.fill();g.stroke()});
+  if(OPT){g.strokeStyle='#fff';g.lineWidth=2.5;const x=X(OPT.x[ix]),y=Y(OPT.x[iy]);g.beginPath();g.moveTo(x-8,y);g.lineTo(x+8,y);g.moveTo(x,y-8);g.lineTo(x,y+8);g.stroke();g.strokeStyle='#111';g.lineWidth=1;g.beginPath();g.arc(x,y,9,0,7);g.stroke()}
+  g.strokeStyle=css('--line');g.strokeRect(P.l,P.t,w,h)}
+function drawAll(){drawEffects();drawPvO();drawSurf()}
+
+/* ---------- optimisation sur le modèle ---------- */
+function optimize(){if(!PLAN)return;const k=PLAN.k,rid=$('obj').value,sg=$('dir').value==='max'?1:-1,useC=$('useC').checked,cr=$('cresp').value,cop=$('cop').value,cv=parseFloat($('cval').value.replace(',','.'));
+  const feas=x=>!useC||(cop==='le'?pred(cr,x)<=cv:pred(cr,x)>=cv);const score=x=>feas(x)?sg*pred(rid,x):-Infinity;
+  const R=DOE.rng(5);let cand=[];for(let i=0;i<6000;i++){const x=Array.from({length:k},()=>-1+2*R());cand.push([score(x),x])}
+  for(const r of PLAN.runs)if(r.x.every(v=>Math.abs(v)<=1))cand.push([score(r.x),r.x.slice()]);
+  cand.sort((a,b)=>b[0]-a[0]);let best=cand[0];
+  for(const [s0,x0] of cand.slice(0,6)){if(!isFinite(s0))continue;let x=x0.slice(),s=s0,st=0.25;
+    while(st>1e-4){let imp=false;for(let j=0;j<k;j++)for(const d of [st,-st]){const y=x.slice();y[j]=Math.max(-1,Math.min(1,y[j]+d));const v=score(y);if(v>s){s=v;x=y;imp=true}}if(!imp)st/=2}
+    if(s>best[0])best=[s,x]}
+  if(!isFinite(best[0])){$('optRes').innerHTML='<span class="ko">Aucun point du domaine ne satisfait la contrainte selon le modèle.</span>';OPT=null;drawSurf();return}
+  OPT={x:best[1],real:best[1].map((c,j)=>PLAN.facts[j].min+(c+1)/2*(PLAN.facts[j].max-PLAN.facts[j].min))};
+  // curseurs des autres facteurs placés à l'optimum
+  SL=OPT.x.slice();buildSliders();showOpt();drawSurf();$('verify').disabled=false}
+function showOpt(sim){const F=PLAN.facts;let h='<table class="res" style="width:auto"><tr><th style="text-align:left">Optimum</th>'+F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')+'</tr><tr><td style="text-align:left">valeurs</td>'+OPT.real.map(v=>`<td>${nf(v)}</td>`).join('')+'</tr></table>';
+  h+='<table class="res" style="width:auto;margin-top:8px"><tr><th style="text-align:left">Réponse</th><th>modèle</th>'+(sim?'<th>simulation</th><th>écart</th>':'')+'</tr>'+
+    RESP.map(q=>{const p=pred(q.id,OPT.x),s=sim?sim[q.id]:NaN;return `<tr><td style="text-align:left">${q.name} (${q.unit})</td><td>${nf(p,q.d)}</td>${sim?`<td>${nf(s,q.d)}</td><td class="${Math.abs(p/s-1)<0.02?'ok':Math.abs(p/s-1)<0.05?'wa':'ko'}">${((p/s-1)*100).toFixed(1)} %</td>`:''}</tr>`}).join('')+'</table>';
+  const emax=sim?Math.max(...RESP.map(q=>Math.abs(pred(q.id,OPT.x)/sim[q.id]-1)).filter(isFinite)):0;
+  if(sim)h+=emax<0.05?`<div class="ok" style="margin-top:6px">Le modèle est validé à l’optimum (écart maximal ${(emax*100).toFixed(1)} %).</div>`:`<div class="hint" style="margin-top:6px">Un écart important indique que le modèle est insuffisant près de l’optimum : enrichir le plan (plus d’essais, modèle quadratique, log(y)) ou réduire le domaine autour de l’optimum.</div>`;
+  $('optRes').innerHTML=h}
+function verify(){if(!OPT)return;const vals={};PLAN.facts.forEach((f,j)=>vals[f.id]=OPT.real[j]);const p=paramsFor(vals),bad=valid(p);if(bad){$('optRes').insertAdjacentHTML('beforeend','<div class="ko">'+bad+'</div>');return}
+  $('verify').disabled=true;setTimeout(()=>{try{showOpt(simulate(p))}catch(e){$('optRes').insertAdjacentHTML('beforeend','<div class="ko">'+e.message+'</div>')}$('verify').disabled=false},20)}
+
+/* ---------- comparaison des plans ---------- */
+function compareDesigns(){const k=active().length;if(k<2||k>6)return;const rows=[];
+  for(const t of Object.keys(DNAME)){let D;try{D=makeDesign(t,k,{n:Math.max(+$('nruns').value,DOE.terms(k,'quad').length),model:'quad',fv:0})}catch(e){D=null}if(!D)continue;
+    const c=m=>DOE.criteria(D,DOE.terms(k,m));const q=c('quad'),l=c('lin');rows.push(`<tr><td style="text-align:left">${DNAME[t]}</td><td>${D.length}</td><td>${l.estimable?l.Deff.toFixed(1)+' %':'—'}</td><td>${q.estimable?q.Deff.toFixed(1)+' %':'non estimable'}</td><td>${q.estimable?q.I.toFixed(3):'—'}</td><td>${q.estimable&&isFinite(q.maxVIF)?q.maxVIF.toFixed(2):'—'}</td></tr>`)}
+  $('cmpBox').innerHTML=`<h3 style="margin-top:12px">Comparaison des plans pour ${k} facteurs</h3><div class="tbl" style="max-height:none"><table class="res"><tr><th style="text-align:left">Plan</th><th>essais</th><th>D-eff linéaire</th><th>D-eff quadratique</th><th>I quadratique</th><th>VIF max quad.</th></tr>${rows.join('')}</table></div><div class="hint">D-efficacité : plus grand = coefficients plus précis par essai. I : variance moyenne de prédiction (plus petit = meilleur). Les plans optimaux utilisent ${Math.max(+$('nruns').value,DOE.terms(k,'quad').length)} essais.</div>`}
+
+function exportCSV(){const F=PLAN.facts;const lines=[['essai',...F.map(f=>f.sym+'_code'),...F.map(f=>f.sym+(f.unit?'_'+f.unit:'')),...RESP.map(r=>r.id+'_'+r.unit),'erreur'].join(';')];
+  PLAN.runs.forEach((r,i)=>lines.push([i+1,...r.x,...r.real,...RESP.map(q=>r.res?r.res[q.id]:''),r.err||''].map(v=>typeof v==='number'?String(v).replace('.',','):v).join(';')));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+lines.join('\n')],{type:'text/csv'}));a.download='plan-experiences-inductance.csv';a.click()}
+
+/* ---------- initialisation ---------- */
+function fillResp(){const o=RESP.map(r=>`<option value="${r.id}">${r.name} (${r.unit})</option>`).join('');$('resp').innerHTML=o;$('obj').innerHTML=o;$('cresp').innerHTML=o;$('cresp').value='B';$('obj').value='LsM'}
+buildFactTable();fillResp();refreshDesignOptions();
+$('design').onchange=$('optModel').onchange=refreshDesignOptions;$('gen').onclick=generate;$('runAll').onclick=runAll;$('stop').onclick=()=>STOP=true;$('csv').onclick=exportCSV;
+$('resp').onchange=()=>{showStats();drawAll()};$('model').onchange=$('logy').onchange=refit;$('fx').onchange=$('fy').onchange=()=>{buildSliders();drawSurf()};
+$('optim').onclick=optimize;$('verify').onclick=verify;$('cmpDesigns').onclick=compareDesigns;
+for(const id of ['useC','cresp','cop','cval'])$(id).onchange=drawSurf;
+$('solver').onchange=$('mat').onchange=()=>{if(PLAN){PLAN.runs.forEach(r=>{r.res=null;r.err=null});FITS={};OPT=null;renderTable();$('optRes').innerHTML='';$('stats').innerHTML='<span class="hint">Solveur modifié : relancez les simulations.</span>';drawAll()}};
+addEventListener('resize',drawAll);
+generate();
+</script>
+</body></html>
