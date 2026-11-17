@@ -68,13 +68,13 @@
   }
 
   /* ---------- Maillage ---------- */
-  function lines(keys, ds, Rmax, grow) {
+  function lines(keys, ds, Rmax, grow, minDiv = 2) {
     // découpe chaque intervalle entre deux cotes « clés » en mailles ≈ ds,
     // puis grandit géométriquement (facteur grow) jusqu'à Rmax.
     keys = [...new Set(keys.map(v => +v.toFixed(6)))].filter(v => v >= 0 && v < Rmax).sort((a, b) => a - b);
     const out = [keys[0]];
     for (let k = 1; k < keys.length; k++) {
-      const a = keys[k - 1], b = keys[k], n = Math.max(2, Math.ceil((b - a) / ds - 1e-9));
+      const a = keys[k - 1], b = keys[k], n = Math.max(minDiv, Math.ceil((b - a) / ds - 1e-9));
       for (let i = 1; i <= n; i++) out.push(a + (b - a) * i / n);
     }
     let x = out[out.length - 1], d = ds;
@@ -86,7 +86,10 @@
     const ds = p.ds, Rmax = p.Rmax;
     const rk = [0], zk = [0];
     for (const g of regs) { rk.push(g.r0, g.r1); zk.push(g.z0, g.z1); }
-    const R = lines(rk, ds, Rmax, 1.18), Z = lines(zk, ds, Rmax, 1.18);
+    // cotes supplémentaires (grille d'optimisation topologique, etc.)
+    if (p.extraR) rk.push(...p.extraR); if (p.extraZ) zk.push(...p.extraZ.filter(v => v >= 0));
+    const md = p.minDiv ?? 2;
+    const R = lines(rk, ds, Rmax, 1.18, md), Z = lines(zk, ds, Rmax, 1.18, md);
     const nr = R.length - 1, nz = Z.length - 1, NZ = nz + 1;
     const node = (i, j) => i * NZ + j;
     const nn = (nr + 1) * NZ;
@@ -187,6 +190,17 @@
       if (g && g.mat === 'iron') isIron[e] = 1;
       if (g && g.mat === 'coil') for (let a = 0; a < 3; a++) rhs[m.tri[3 * e + a]] += J * G.fN[3 * e + a];
     }
+    // optimisation topologique ON/OFF : p.topo.at(r, z) (mm) → 1 fer, 0 air, −1 hors espace de conception
+    let topoCell = null;
+    if (p.topo) {
+      topoCell = new Int32Array(G.ne).fill(-1);
+      for (let e = 0; e < G.ne; e++) {
+        const g = m.reg[e] >= 0 ? regs[m.reg[e]] : null; if (g && g.mat === 'coil') continue;
+        const zc = (m.y[m.tri[3 * e]] + m.y[m.tri[3 * e + 1]] + m.y[m.tri[3 * e + 2]]) / 3 * 1000, rc = G.rc[e] * 1000;
+        const q = p.topo.cell(rc, zc); if (q < 0) continue;
+        topoCell[e] = q; isIron[e] = p.topo.on[q] ? 1 : 0;
+      }
+    }
     const nu0 = 1 / MU0, nu = new Float64Array(G.ne).fill(nu0);
     for (let e = 0; e < G.ne; e++) if (isIron[e]) nu[e] = 1 / (MU0 * p.mur);
     let psi, B, it = 0, err = 0, converged = true;
@@ -255,7 +269,7 @@
     const iRm = m.R.reduce((best, v, i) => Math.abs(v - (coil.r0 + coil.r1) / 2) < Math.abs(m.R[best] - (coil.r0 + coil.r1) / 2) ? i : best, 0);
     const phiMean = 2 * Math.PI * psi[iRm * m.NZ];
     const t1 = (typeof performance !== 'undefined' ? performance : Date).now();
-    return { p, regs, m, G, psi, B, nu, isIron, J, lambda, L, Lw: 2 * W / (p.I * p.I), W, phiCore, phiMean,
+    return { p, regs, m, G, psi, B, nu, isIron, topoCell, J, lambda, L, Lw: 2 * W / (p.I * p.I), W, phiCore, phiMean,
       phiPerTurn: lambda / p.N, Bmax, BmaxIron, it, converged, err, hasNL, ms: t1 - t0, iron };
   }
 

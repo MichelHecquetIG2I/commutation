@@ -135,14 +135,15 @@ code{font-family:var(--mono);font-size:12px}
     <div class="mtabs" role="tablist" aria-label="Méthode d’optimisation">
       <label><input type="radio" name="meth" value="doe" checked>1 · Plans d’expériences + modèle</label>
       <label><input type="radio" name="meth" value="sqp">2 · SQP direct sur EF / MEC</label>
-      <label><input type="radio" name="meth" value="nsga">3 · Multi-objectif NSGA-II</label></div>
+      <label><input type="radio" name="meth" value="nsga">3 · Multi-objectif NSGA-II</label>
+      <label><input type="radio" name="meth" value="topo">4 · Topologique ON/OFF</label></div>
     <div id="mono">
       <div class="ctl"><label><select class="v" id="dir" style="width:auto"><option value="max">Maximiser</option><option value="min">Minimiser</option></select></label><label><select class="v" id="obj" style="width:auto"></select></label></div>
     </div>
     <div id="multi" style="display:none">
       <div class="ctl"><label>Objectif 1 : maximiser <select class="v" id="obj1" style="width:auto"></select></label><label>Objectif 2 : minimiser <select class="v" id="obj2" style="width:auto"></select></label></div>
     </div>
-    <div class="ctl"><label><input type="checkbox" id="useC" checked>sous la contrainte</label><select class="v" id="cresp" style="width:auto"></select><select class="v" id="cop" style="width:auto"><option value="le">≤</option><option value="ge">≥</option></select><input class="v" id="cval" style="width:90px" value="1.2"></div>
+    <div class="ctl" id="crow"><label><input type="checkbox" id="useC" checked>sous la contrainte</label><select class="v" id="cresp" style="width:auto"></select><select class="v" id="cop" style="width:auto"><option value="le">≤</option><option value="ge">≥</option></select><input class="v" id="cval" style="width:90px" value="1.2"></div>
 
     <div class="mpane" id="pane-doe">
       <p class="hint">Démarche : les essais du plan ont été simulés et un modèle (surface de réponse) a été ajusté sur chaque réponse. L’optimisation porte sur ce modèle — instantanée — puis on vérifie le point trouvé par une simulation. Recherche : 6 000 points aléatoires puis recherche par motifs (compass search) depuis les 6 meilleurs ; contrainte par rejet.</p>
@@ -171,10 +172,37 @@ code{font-family:var(--mono);font-size:12px}
       <p class="hint">Démarche NSGA-II (Deb, 2002) : une population de géométries évolue sur plusieurs générations (sélection par tournoi, croisement SBX, mutation polynomiale). Le classement se fait par fronts de non-domination et par distance de surpeuplement, ce qui répartit les solutions le long du <b>front de Pareto</b> : aucun point du front ne peut améliorer un objectif sans dégrader l’autre. Les géométries qui violent la contrainte sont dominées par toutes les géométries admissibles.</p>
       <div class="ctl"><label>Évaluation <select class="v" id="nsEval" style="width:auto"><option value="model">sur le modèle du plan (instantané)</option><option value="direct">directe par le solveur (EF / MEC)</option></select></label>
         <label>population <input class="v" id="nsPop" style="width:60px" value="40"></label><label>générations <input class="v" id="nsGen" style="width:60px" value="30"></label><span class="hint" id="nsCost"></span></div>
+      <div class="ctl"><label><input type="checkbox" id="nsDisc">variables discrètes : N entier, cotes au pas de</label><input class="v" id="nsStep" style="width:60px" value="0.1"><span>mm</span>
+        <span class="hint">L’algorithme génétique ne calcule aucun gradient : il traite directement des variables entières ou prises dans un catalogue (nombre de spires, tôles ou noyaux normalisés), ce que SQP ne sait pas faire.</span></div>
       <div style="display:flex;gap:6px"><button class="btn primary" id="nsRun">Lancer NSGA-II</button><button class="btn" id="nsStop" disabled>Arrêter</button><button class="btn" id="nsVerify" disabled>Vérifier le point choisi</button></div>
       <div class="kpi" id="nsInfo"></div>
       <div class="two"><div><canvas class="ch big" id="pareto"></canvas><div class="hint">Cliquez un point du front pour voir la géométrie. Couleur : part de l’énergie stockée dans l’entrefer.</div></div><div id="nsSel"></div></div>
+      <div class="two" style="margin-top:10px"><div><canvas class="ch" id="nsGeo" style="height:230px"></canvas>
+          <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:4px">Parcourir le front (masse croissante) <input type="range" id="nsSlide" min="0" max="0" value="0" style="flex:1" disabled></label></div>
+        <div><canvas class="ch" id="nsField" style="height:230px"></canvas><div class="hint" id="nsFieldInfo">Évolution de la bobine le long du front : choisissez un point ou déplacez le curseur ; la carte de |B| est calculée par le solveur choisi.</div></div></div>
       <div class="cmp" id="energyBox"></div>
+    </div>
+
+    <div class="mpane" id="pane-topo" style="display:none">
+      <p class="hint">On part d’une géométrie déjà optimisée paramétriquement (méthode 1, 2 ou 3) et on laisse l’algorithme placer librement le fer, cellule par cellule, dans l’encombrement du pot. Objectif : à courant imposé, conserver l’énergie emmagasinée W en retirant le fer inutile (ou en le déplaçant là où il sert).</p>
+      <ol class="steps">
+        <li><b>Projection</b> de la géométrie de départ sur une grille de cellules (≈ 1 mm) : chaque cellule est du fer (ON) ou de l’air (OFF). La bobine et l’entrefer restent hors de l’espace de conception ; symétrie par rapport au plan médian.</li>
+        <li><b>Calcul du champ</b> à courant imposé : éléments finis ou réseau de réluctances maillé (MEC).</li>
+        <li><b>Sensibilité</b> : à courant imposé, dW/dν = −½·∫B² dV. Basculer une cellule fer ↔ air change W d’environ ½·ν0·B²·V ; rapportée à la masse de la cellule, la sensibilité vaut <b>B²</b>. Le problème est auto-adjoint : l’état sert de variable adjointe, aucun calcul supplémentaire.</li>
+        <li><b>Filtrage</b> spatial (rayon 1,5 cellule) et moyenne sur deux itérations, pour éviter les damiers et les oscillations.</li>
+        <li><b>Mise à jour ON/OFF</b> (type BESO) : la masse cible diminue de ER par itération ; on garde les cellules de plus forte sensibilité ; au plus 2 % de cellules ajoutées par itération. Les variables restent binaires.</li>
+        <li><b>Arrêt</b> : masse cible atteinte et W stable, ou W passerait sous W<sub>min</sub>, ou l’induction du fer dépasserait B<sub>max</sub> (saturation).</li></ol>
+      <p class="hint">Même esprit que la thèse de V. Martin (L2EP, chap. 4) : réseau de réluctances maillé, maximisation de L à volume contraint. La thèse utilise des densités continues, une pénalisation et la méthode adjointe ; ici, variables binaires et linéarisation ON/OFF à changements limités (algorithme de R. El Bechari cité au § 4.3.1).</p>
+      <div class="ctl"><label>Départ <select class="v" id="tpX0" style="width:auto"><option value="nsga">point choisi sur le front NSGA-II</option><option value="sqp">optimum SQP</option><option value="doe">optimum du plan (méthode 1)</option><option value="fix">valeurs « fixe » des facteurs</option></select></label>
+        <label>Grille <select class="v" id="tpNr" style="width:auto"><option value="20">20 cellules en r</option><option value="30" selected>30 cellules en r</option><option value="40">40 cellules en r</option></select></label>
+        <label>masse cible <input class="v" id="tpTarget" style="width:50px" value="50"> %</label><label>ER <input class="v" id="tpER" style="width:45px" value="3"> %/it.</label>
+        <label>W<sub>min</sub> <input class="v" id="tpWmin" style="width:45px" value="90"> % de W0</label><label>B<sub>max</sub> fer <input class="v" id="tpB" style="width:50px" value="1.7"> T</label><label>itérations max <input class="v" id="tpIt" style="width:50px" value="60"></label></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="tpEF">Lancer en EF</button><button class="btn primary" id="tpMEC">Lancer en MEC</button><button class="btn" id="tpBoth">EF puis MEC + vérification croisée</button><button class="btn" id="tpStop" disabled>Arrêter</button></div>
+      <div class="kpi" id="tpInfo"></div>
+      <div class="two"><div><canvas class="ch big" id="tpMap"></canvas>
+          <div class="ctl" style="margin:4px 0 0"><label>Vue <select class="v" id="tpView" style="width:auto"><option value="ef">EF</option><option value="mec">MEC</option></select></label><label style="flex:1">itération <input type="range" id="tpSlide" min="0" max="0" value="0" style="flex:1"></label><span class="hint" id="tpItLab"></span></div></div>
+        <div><canvas class="ch big" id="tpCurve"></canvas><div class="hint">Énergie W en fonction de la masse de fer au fil des itérations ; en gris, le front de Pareto paramétrique (méthode 3) s’il a été calculé.</div></div></div>
+      <div id="tpRes"></div>
     </div>
   </section>
   <section class="card" id="exemple">
@@ -193,6 +221,7 @@ code{font-family:var(--mono);font-size:12px}
 <script src="mec-axi.js"></script>
 <script src="doe.js"></script>
 <script src="optim.js"></script>
+<script src="topo.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -407,11 +436,13 @@ async function runSQP(){const F=FF(),k=F.length;if(k<2){alert('Choisissez au moi
   let res=null;try{res=await OPTIM.sqp(fun,x0,{h:parseFloat($('sqpH').value.replace(',','.'))||0.03,maxIter:+$('sqpIt').value||12,central:$('sqpFD').value==='cen',log})}catch(e){if(e.message!=='stop')$('sqpRes').innerHTML='<span class="ko">'+e.message+'</span>'}
   $('sqpRun').disabled=false;$('sqpStop').disabled=true;
   if(res){const r=simDirect(res.x),real=realOf(res.x),n=SIMCOUNT-c0;let h=`<div class="cmp"><b>Optimum SQP</b> : ${F.map((f,j)=>`${f.sym} = ${nf(real[j])} ${f.unit}`).join(', ')} → ${q.name} = <b>${nf(r[rid],q.d)} ${q.unit}</b>${useC?`, ${qc.name} = ${nf(r[cr],qc.d)} ${qc.unit}`:''} — <b>${n}</b> simulations, ${((performance.now()-t0)/1000).toFixed(1)} s.`;
-    if(OPT){const so=OPT.sim||simDirect(OPT.x);if(so)h+=`<br>Méthode 1 (plan de ${PLAN.runs.length} essais + modèle + 1 vérification) : ${q.name} = ${nf(so[rid],q.d)} ${q.unit} → écart SQP / plan : <b>${((r[rid]/so[rid]-1)*100).toFixed(2).replace('.',',')} %</b>.`}
+    if(OPT){const so=OPT.sim||simDirect(OPT.x);if(so){const feas=!useC||consV(so[cr])<=2e-3;
+      h+=`<br>Méthode 1 (plan de ${PLAN.runs.length} essais + modèle + 1 vérification) : ${q.name} = ${nf(so[rid],q.d)} ${q.unit}`+(feas?` → écart SQP / plan : <b>${((r[rid]/so[rid]-1)*100).toFixed(2).replace('.',',')} %</b>.`
+        :` mais ce point <b class="ko">viole la contrainte</b> une fois simulé (${qc.name} = ${nf(so[cr],qc.d)} ${qc.unit} pour une limite de ${$('cval').value}) : le modèle s’est trompé sur la contrainte, la comparaison n’a pas de sens. SQP, lui, respecte la contrainte sur le vrai calcul. Pour la méthode 1, resserrer le domaine autour de l’optimum ou utiliser log(y).`)}}
     h+=`<br><span class="hint">SQP converge vers un optimum local en suivant les gradients : peu de simulations quand le problème est régulier, mais sensible au point de départ et au « bruit » numérique du maillage (choisir h assez grand). Le plan d’expériences explore tout le domaine et fournit un modèle réutilisable.</span></div>`;$('sqpRes').innerHTML=h}}
 function drawSQP(hist,q,qc,useC){const [g,W,H]=ctx($('sqpCh'));if(!hist.length)return;const P={l:50,r:50,t:14,b:28},w=W-P.l-P.r,h=H-P.t-P.b,n=Math.max(1,hist.length-1);
   const ax=(vals,col,side)=>{const v=vals.filter(isFinite);if(!v.length)return null;let lo=Math.min(...v),hi=Math.max(...v);if(hi-lo<1e-12){lo-=1;hi+=1}const pad=(hi-lo)*.08;lo-=pad;hi+=pad;
-    g.fillStyle=col;g.textAlign=side?'left':'right';for(let k=0;k<=4;k++){const y=lo+(hi-lo)*k/4;g.fillText(nf(y,3),side?W-P.r+4:P.l-4,P.t+h-(k/4)*h+4)}return y=>P.t+h-(y-lo)/(hi-lo)*h};
+    g.fillStyle=col;g.textAlign=side?'left':'right';for(let k=0;k<=4;k++){const y=lo+(hi-lo)*k/4;g.fillText(nf(y,side?4:3),side?W-P.r+4:P.l-4,P.t+h-(k/4)*h+4)}return y=>P.t+h-(y-lo)/(hi-lo)*h};
   g.strokeStyle=css('--line');g.strokeRect(P.l,P.t,w,h);const X=i=>P.l+i/n*w;
   const Y1=ax(hist.map(e=>e.v),css('--accent'),0);g.strokeStyle=css('--accent');g.lineWidth=2;g.beginPath();hist.forEach((e,i)=>i?g.lineTo(X(i),Y1(e.v)):g.moveTo(X(i),Y1(e.v)));g.stroke();
   if(useC){const Y2=ax(hist.map(e=>e.c),css('--bad'),1);const cv=parseFloat($('cval').value.replace(',','.'));g.setLineDash([5,3]);g.strokeStyle=css('--bad');g.lineWidth=1.5;g.beginPath();hist.forEach((e,i)=>i?g.lineTo(X(i),Y2(e.c)):g.moveTo(X(i),Y2(e.c)));g.stroke();
@@ -423,11 +454,12 @@ async function runNSGA(){const F=FF(),k=F.length;if(k<2){alert('Choisissez au mo
   const mode=$('nsEval').value,o1=$('obj1').value,o2=$('obj2').value,useC=$('useC').checked,cr=$('cresp').value;
   if(mode==='model'&&!(FITS[o1]&&FITS[o1].ok&&FITS[o2]&&FITS[o2].ok)){alert('Évaluation sur le modèle : lancez d’abord les simulations du plan (ou choisissez l’évaluation directe).');return}
   NSSTOP=false;$('nsRun').disabled=true;$('nsStop').disabled=false;$('nsVerify').disabled=true;NSSEL=null;$('nsSel').innerHTML='';const t0=performance.now(),c0=SIMCOUNT;
-  const fun=x=>{if(NSSTOP)throw new Error('stop');const r=mode==='model'?modelAll(x):simDirect(x);if(!r)return{f:[1e9,1e9],cv:1e9};return{f:[-r[o1],r[o2]],cv:useC?Math.max(0,consV(r[cr])):0,extra:r}};
+  const disc=$('nsDisc').checked,stepMM=parseFloat($('nsStep').value.replace(',','.'))||0;
+  const fun=x=>{if(NSSTOP)throw new Error('stop');if(disc)snapX(x,stepMM);const r=mode==='model'?modelAll(x):simDirect(x);if(!r)return{f:[1e9,1e9],cv:1e9};return{f:[-r[o1],r[o2]],cv:useC?Math.max(0,consV(r[cr])):0,extra:r}};
   try{const res=await OPTIM.nsga2(fun,k,{pop:+$('nsPop').value||40,gen:+$('nsGen').value||30,seed:9,onGen:(g,P,nev)=>{NS={pop:P,mode,o1,o2,F:F.map(f=>({...f}))};
       $('nsInfo').innerHTML=`<span>Génération <b>${g}</b> / ${$('nsGen').value}</span><span>Évaluations : <b>${nev}</b>${mode==='direct'?` (simulations : ${SIMCOUNT-c0})`:' (modèle)'}</span><span>Front : <b>${P.filter(p=>p.rank===0&&p.cv===0).length}</b> points</span><span>${((performance.now()-t0)/1000).toFixed(1)} s</span>`;drawPareto()}});
     NS.front=res.front}catch(e){if(e.message!=='stop')alert(e.message)}
-  $('nsRun').disabled=false;$('nsStop').disabled=true;drawPareto();energyText()}
+  $('nsRun').disabled=false;$('nsStop').disabled=true;drawPareto();energyText();nsFrontReady()}
 function drawPareto(){const [g,W,H]=ctx($('pareto'));if(!NS)return;const q1=RESP.find(r=>r.id===NS.o1),q2=RESP.find(r=>r.id===NS.o2);const P={l:62,r:16,t:16,b:40},w=W-P.l-P.r,h=H-P.t-P.b;
   const pts=NS.pop.map(p=>({p,x:p.f[1],y:-p.f[0]})).filter(o=>isFinite(o.x)&&isFinite(o.y)&&Math.abs(o.x)<1e8);if(!pts.length)return;
   let x0=Math.min(...pts.map(o=>o.x)),x1=Math.max(...pts.map(o=>o.x)),y0=Math.min(...pts.map(o=>o.y)),y1=Math.max(...pts.map(o=>o.y));const px=(x1-x0)*.06||1,py=(y1-y0)*.08||1;x0-=px;x1+=px;y0-=py;y1+=py;
@@ -444,7 +476,7 @@ function drawPareto(){const [g,W,H]=ctx($('pareto'));if(!NS)return;const q1=RESP
   if(pv.length){const lx=P.l+w-160,ly=P.t+h-40;for(let i=0;i<=20;i++){g.fillStyle=cmap(i/20);g.fillRect(lx+i*7,ly,7,8)}g.fillStyle=css('--fg');g.textAlign='left';g.fillText('Wg/W : '+nf(plo,3)+' → '+nf(phi,3)+' %',lx,ly+22)}
   g.fillStyle=css('--muted');g.textAlign='left';g.fillText('● front de Pareto   ● dominés   ✕ contrainte violée',P.l+6,P.t+h-6)}
 function selectPareto(ev){if(!NS||!NS.view)return;const rect=$('pareto').getBoundingClientRect(),mx=ev.clientX-rect.left,my=ev.clientY-rect.top;let best=null,bd=1e9;
-  for(const o of NS.view.pts){if(o.p.cv>0)continue;const d=Math.hypot(NS.view.X(o.x)-mx,NS.view.Y(o.y)-my);if(d<bd){bd=d;best=o.p}}if(!best||bd>25)return;NSSEL=best;showSel();drawPareto();$('nsVerify').disabled=NS.mode!=='model'}
+  for(const o of NS.view.pts){if(o.p.cv>0)continue;const d=Math.hypot(NS.view.X(o.x)-mx,NS.view.Y(o.y)-my);if(d<bd){bd=d;best=o.p}}if(!best||bd>25)return;NSSEL=best;showSel();drawPareto();$('nsVerify').disabled=NS.mode!=='model';const i=frontSorted().indexOf(best);if(i>=0)$('nsSlide').value=i;drawGeoStrip();drawNsField()}
 function showSel(sim){const p=NSSEL,F=NS.F,real=p.x.map((c,j)=>F[j].min+(c+1)/2*(F[j].max-F[j].min)),r=p.extra;
   let h=`<table class="res" style="width:auto"><tr><th style="text-align:left">Point choisi</th>${F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')}</tr><tr><td style="text-align:left">valeurs</td>${real.map(v=>`<td>${nf(v)}</td>`).join('')}</tr></table>`;
   h+=`<table class="res" style="width:auto;margin-top:6px"><tr><th style="text-align:left">Réponse</th><th>${NS.mode==='model'?'modèle':'simulation'}</th>${sim?'<th>simulation</th><th>écart</th>':''}</tr>`+RESP.map(q=>`<tr><td style="text-align:left">${q.name} (${q.unit})</td><td>${nf(r[q.id],q.d)}</td>${sim?`<td>${nf(sim[q.id],q.d)}</td><td>${((r[q.id]/sim[q.id]-1)*100).toFixed(1).replace('.',',')} %</td>`:''}</tr>`).join('')+'</table>';
@@ -458,6 +490,116 @@ function energyText(){if(!NS||!NS.front||!NS.front.length){$('energyBox').innerH
     Dans une inductance à entrefer, l’essentiel de l’énergie est stocké dans l’entrefer : W ≈ B<sub>g</sub>²·V<sub>g</sub>/(2µ0), avec V<sub>g</sub> = π·rn²·g. L’induction est plafonnée par la saturation du fer (contrainte B noyau ≤ ${$('cval').value} T) :
     pour stocker plus d’énergie, il faut donc un <b>plus grand volume d’entrefer</b>, c’est-à-dire un noyau de plus grande section… donc plus de fer. D’où le compromis énergie / masse décrit par le front de Pareto.<br>
     Sur le front obtenu : W de ${rng('W')} mJ, masse de fer de ${rng('mfe')} g, part de l’énergie dans l’entrefer de ${rng('pWg')} %, W/masse de ${rng('WsM')} mJ/kg ; pente moyenne ΔW/Δm ≈ <b>${nf(sl*1000,3)} mJ/kg</b>.`}
+
+/* ---------- variables discrètes (NSGA-II) ---------- */
+function snapX(x,stepMM){const F=FF();for(let j=0;j<F.length;j++){const f=F[j];let v=f.min+(x[j]+1)/2*(f.max-f.min);
+  if(f.id==='N')v=Math.round(v);else if(f.unit==='mm'&&stepMM>0)v=Math.round(v/stepMM)*stepMM;v=Math.min(f.max,Math.max(f.min,v));x[j]=2*(v-f.min)/(f.max-f.min)-1}return x}
+
+/* ---------- dessin de la géométrie et des cartes de champ ---------- */
+const BMAP=1.8;
+function extentOf(p){let R=0,Z=0;for(const q of FEM.buildGeometry(p)){R=Math.max(R,q.r1);Z=Math.max(Z,q.z1)}return{R,Z}}
+function rect4(g,cx,cy,s,r0,r1,z0,z1,mirZ=true){for(const sx of[-1,1])for(const sz of(mirZ?[-1,1]:[1])){const x0=cx+sx*r0*s,x1=cx+sx*r1*s,y0=cy-sz*z0*s,y1=cy-sz*z1*s;g.fillRect(Math.floor(Math.min(x0,x1)),Math.floor(Math.min(y0,y1)),Math.ceil(Math.abs(x1-x0))+1,Math.ceil(Math.abs(y1-y0))+1)}}
+function outline4(g,cx,cy,s,r0,r1,z0,z1){for(const sx of[-1,1])for(const sz of[-1,1]){const x0=cx+sx*r0*s,x1=cx+sx*r1*s,y0=cy-sz*z0*s,y1=cy-sz*z1*s;g.strokeRect(Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0))}}
+function drawPotAt(g,p,cx,cy,s){for(const q of FEM.buildGeometry(p)){g.fillStyle=q.mat==='iron'?'#7d8a9c':'#d9822b';rect4(g,cx,cy,s,q.r0,q.r1,q.z0,q.z1)}
+  g.strokeStyle=css('--muted');g.setLineDash([3,3]);g.lineWidth=1;g.beginPath();g.moveTo(cx,cy-extentOf(p).Z*s-4);g.lineTo(cx,cy+extentOf(p).Z*s+4);g.stroke();g.setLineDash([])}
+function cbar(g,x,y,h,max,label){for(let i=0;i<=40;i++){g.fillStyle=cmap(1-i/40);g.fillRect(x,y+i*h/41,12,h/41+1)}g.fillStyle=css('--fg');g.textAlign='left';
+  for(const v of[0,max/2,max])g.fillText(nf(v,2),x+16,y+h-(v/max)*h+4);g.fillText(label,x-2,y-5)}
+function drawFieldSol(g,sol,mec,cx,cy,s,ext){
+  if(mec){const G=sol.grid;for(let i=0;i<G.nr;i++){if(G.R[i]>=ext.R)continue;for(let k=0;k<G.nz;k++){const z0=G.Z[k],z1=G.Z[k+1];if(Math.min(Math.abs(z0),Math.abs(z1))>=ext.Z)continue;
+      g.fillStyle=cmap(sol.Bmod[i*G.nz+k]/BMAP);for(const sx of[-1,1]){const x0=cx+sx*G.R[i]*s,x1=cx+sx*G.R[i+1]*s;g.fillRect(Math.floor(Math.min(x0,x1)),Math.floor(cy-z1*s),Math.ceil(Math.abs(x1-x0))+1,Math.ceil((z1-z0)*s)+1)}}}}
+  else{const m=sol.m;for(let i=0;i<m.nr;i++){if(m.R[i]>=ext.R)continue;for(let j=0;j<m.nz;j++){if(m.Z[j]>=ext.Z)continue;const e=2*(i*m.nz+j);g.fillStyle=cmap((sol.B.Bm[e]+sol.B.Bm[e+1])/2/BMAP);rect4(g,cx,cy,s,m.R[i],m.R[i+1],m.Z[j],m.Z[j+1])}}}
+  g.lineWidth=1;for(const q of sol.regs){g.strokeStyle=q.mat==='coil'?'#ffb347':'rgba(255,255,255,.85)';outline4(g,cx,cy,s,q.r0,q.r1,q.z0,q.z1)}}
+const FIELDCACHE=new Map();
+function solveField(p){const mec=$('solver').value.startsWith('mec'),key=(mec?'m':'f')+JSON.stringify([p.rn,p.re,p.h,p.gap,p.N,p.I,p.material,p.ds,p.nr]);if(FIELDCACHE.has(key))return FIELDCACHE.get(key);
+  const sol=mec?MEC.solve(p):FEM.solve(p);if(FIELDCACHE.size>30)FIELDCACHE.clear();FIELDCACHE.set(key,{sol,mec});return {sol,mec}}
+
+/* ---------- NSGA-II : évolution de la bobine le long du front ---------- */
+function frontSorted(){return NS&&NS.front?NS.front.filter(p=>p.extra).slice().sort((a,b)=>a.extra.mfe-b.extra.mfe):[]}
+function nsParams(pt){const vals={};NS.F.forEach((f,j)=>vals[f.id]=f.min+(pt.x[j]+1)/2*(f.max-f.min));return paramsFor(vals)}
+function nsFrontReady(){const L=frontSorted();$('nsSlide').max=Math.max(0,L.length-1);$('nsSlide').disabled=!L.length;if(L.length&&!NSSEL){NSSEL=L[Math.floor(L.length/2)];showSel();drawPareto()}
+  if(NSSEL)$('nsSlide').value=Math.max(0,L.indexOf(NSSEL));drawGeoStrip();drawNsField()}
+function drawGeoStrip(){const c=$('nsGeo');if(!c||!c.clientWidth)return;const [g,W,H]=ctx(c);const L=frontSorted();
+  if(!L.length){g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Lancez NSGA-II : la géométrie des solutions du front apparaîtra ici.',10,20);return}
+  const n=Math.min(6,L.length),idx=[...new Set(Array.from({length:n},(_,i)=>Math.round(i*(L.length-1)/Math.max(1,n-1))))];
+  const ps=idx.map(i=>({pt:L[i],p:nsParams(L[i])})),ex=ps.map(o=>extentOf(o.p)),Rm=Math.max(...ex.map(e=>e.R)),Zm=Math.max(...ex.map(e=>e.Z));
+  const pw=W/ps.length,top=18,hh=H-top-62,s=Math.min((pw-14)/(2*Rm),hh/(2*Zm));
+  g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Même échelle — de la plus légère à la plus énergétique',6,12);
+  ps.forEach((o,k)=>{const cx=pw*(k+.5),cy=top+hh/2;if(o.pt===NSSEL){g.strokeStyle=css('--accent');g.lineWidth=2;g.strokeRect(pw*k+2,top-2,pw-4,H-top)}
+    drawPotAt(g,o.p,cx,cy,s);g.textAlign='center';g.font='10.5px '+css('--mono');g.fillStyle=css('--fg');g.fillText(`${nf(o.pt.extra.mfe,3)} g`,cx,H-46);g.fillText(`${nf(o.pt.extra.W,3)} mJ`,cx,H-33);
+    g.fillStyle=css('--muted');g.fillText(`rn ${nf(o.p.rn,3)} · g ${nf(o.p.gap,2)}`,cx,H-19);g.fillText(`h ${nf(o.p.h,3)}`+(NS.F.some(f=>f.id==='N')?` · N ${o.p.N}`:''),cx,H-6)});
+  g.font='11px '+css('--mono');g.strokeStyle=css('--fg');g.lineWidth=2;g.beginPath();g.moveTo(W-14-10*s,9);g.lineTo(W-14,9);g.stroke();g.fillStyle=css('--fg');g.textAlign='right';g.fillText('10 mm',W-18-10*s,13)}
+function drawNsField(){const c=$('nsField');if(!c||!c.clientWidth)return;const [g,W,H]=ctx(c);if(!NS||!NSSEL){g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Choisissez un point du front.',10,20);return}
+  const p=nsParams(NSSEL),{sol,mec}=solveField(p),ex=extentOf(p),ext={R:ex.R+2,Z:ex.Z+2},s=Math.min((W-80)/(2*ext.R),(H-16)/(2*ext.Z)),cx=(W-60)/2,cy=H/2;
+  g.fillStyle='#0b1020';g.fillRect(cx-ext.R*s,cy-ext.Z*s,2*ext.R*s,2*ext.Z*s);drawFieldSol(g,sol,mec,cx,cy,s,ext);cbar(g,W-52,22,H-44,BMAP,'|B| (T)');
+  $('nsFieldInfo').innerHTML=`Point choisi : rn = ${nf(p.rn,3)} mm, g = ${nf(p.gap,3)} mm, h = ${nf(p.h,3)} mm, N = ${p.N}, I = ${nf(p.I,3)} A — calcul ${mec?'MEC':'EF'} : L = ${nf(sol.L*1e3,4)} mH, W = ${nf(sol.W*1e3,4)} mJ, B max dans le fer = ${nf(sol.BmaxIron,3)} T.`}
+
+/* ---------- méthode 4 : optimisation topologique ON/OFF ---------- */
+let TOPORES={},TOPOSTOP=false;
+const pnum=id=>parseFloat($(id).value.replace(',','.'));
+function topoStart(){const m=$('tpX0').value,vals={};let lab='',ok=true;
+  if(m==='nsga'){if(NS&&NSSEL){NS.F.forEach((f,j)=>vals[f.id]=f.min+(NSSEL.x[j]+1)/2*(f.max-f.min));lab='point choisi sur le front NSGA-II'}else ok=false}
+  else if(m==='sqp'){if(SQPPATH&&SQPPATH.length){const x=SQPPATH[SQPPATH.length-1],re=realOf(x);FF().forEach((f,j)=>vals[f.id]=re[j]);lab='optimum SQP'}else ok=false}
+  else if(m==='doe'){if(OPT&&PLAN){PLAN.facts.forEach((f,j)=>vals[f.id]=f.min+(OPT.x[j]+1)/2*(f.max-f.min));lab='optimum du plan (méthode 1)'}else ok=false}
+  if(!ok||m==='fix')lab=(ok?'':'(départ demandé indisponible) ')+'valeurs « fixe » des facteurs';
+  return {p:paramsFor(vals),lab}}
+function paramRef(p){const f=FEM.solve(p);let v=0;for(const q of FEM.buildGeometry(p))if(q.mat==='iron')v+=Math.PI*(q.r1*q.r1-q.r0*q.r0)*(q.z1-q.z0)*2;return{W:f.W*1e3,L:f.L*1e3,mfe:v*1e-9*RHO_FE*1000,B95:NaN,Bmax:f.BmaxIron}}
+async function runTopo(list){const st=topoStart(),bad=valid(st.p);if(bad){alert('Géométrie de départ invalide : '+bad);return}
+  TOPOSTOP=false;['tpEF','tpMEC','tpBoth'].forEach(id=>$(id).disabled=true);$('tpStop').disabled=false;$('tpRes').innerHTML='';
+  const ref=paramRef(st.p),nrOpt=+$('tpNr').value;if(list.length===2)TOPORES={};
+  for(const sv of list){if(TOPOSTOP)break;const grid=TOPO.makeGrid(st.p,FEM.buildGeometry(st.p),{nr:nrOpt}),t0=performance.now();
+    TOPORES[sv]={grid,hist:[],p:st.p,lab:st.lab,ref,nrOpt,running:true};$('tpView').value=sv;
+    const res=await TOPO.beso(FEM,MEC,st.p,grid,{solver:sv,target:pnum('tpTarget')/100,ER:pnum('tpER')/100,AR:0.02,maxIter:+$('tpIt').value||60,wMin:pnum('tpWmin')/100,bLim:pnum('tpB'),stop:()=>TOPOSTOP,
+      onIter:async(it,snap,hist)=>{TOPORES[sv].hist=hist;$('tpSlide').max=hist.length-1;$('tpSlide').value=hist.length-1;
+        $('tpInfo').innerHTML=`<span>${sv==='ef'?'Éléments finis':'Réseau de réluctances maillé'} — grille de conception <b>${grid.nr} × ${grid.nz}</b> (${nf(grid.dr,3)} × ${nf(grid.dz,3)} mm)</span><span>Itération <b>${it}</b></span><span>Masse <b>${nf(snap.mfe,4)}</b> g</span><span>W <b>${nf(snap.W,4)}</b> mJ</span><span>B fer (95 %) <b>${nf(snap.B95,3)}</b> T</span><span>${((performance.now()-t0)/1000).toFixed(1)} s</span>`;
+        drawTopoMap();drawTopoCurve();await new Promise(r=>setTimeout(r,0))}});
+    Object.assign(TOPORES[sv],res,{running:false,time:(performance.now()-t0)/1000})}
+  if(list.length===2&&TOPORES.ef&&TOPORES.mec&&TOPORES.ef.final&&TOPORES.mec.final)for(const [a,b] of [['ef','mec'],['mec','ef']]){const R=TOPORES[a],g2=TOPO.makeGrid(R.p,FEM.buildGeometry(R.p),{nr:R.nrOpt});g2.on.set(R.final.on);const e=TOPO.evaluate(FEM,MEC,R.p,g2,b);R.cross={solver:b,W:e.W,mfe:e.mfe,B95:e.B95,L:e.L}}
+  ['tpEF','tpMEC','tpBoth'].forEach(id=>$(id).disabled=false);$('tpStop').disabled=true;drawTopoMap();drawTopoCurve();topoTable()}
+function topoTable(){const rows=[],ref=(TOPORES.ef||TOPORES.mec||{}).ref;if(!ref)return;const lab=(TOPORES.ef||TOPORES.mec).lab;
+  const row=(n,o,extra='')=>`<tr><td style="text-align:left">${n}</td><td>${nf(o.mfe,4)}</td><td>${nf(o.W,4)}</td><td>${nf(o.L,4)}</td><td>${nf(o.W/(o.mfe/1000),4)}</td><td>${nf(o.B95,3)}</td><td style="text-align:left">${extra}</td></tr>`;
+  rows.push(row('Pot paramétrique ('+lab+'), géométrie exacte, EF',ref,'référence'));
+  for(const sv of ['ef','mec']){const R=TOPORES[sv];if(!R||!R.final)continue;const S=sv==='ef'?'EF':'MEC',h0=R.hist[0],f=R.final;
+    rows.push(row(`Départ projeté sur la grille ${R.grid.nr} × ${R.grid.nz} (${S})`,h0,''));
+    rows.push(row(`<b>Topologie optimisée (${S})</b>`,f,`masse ${((f.mfe/h0.mfe-1)*100).toFixed(1).replace('.',',')} %, W ${((f.W/h0.W-1)*100).toFixed(1).replace('.',',')} % — ${f.it} itérations acceptées, ${R.nEval} calculs ${R.rejects?`(dont ${R.rejects} pas refusés puis réduits)`:''}, ${R.time.toFixed(1).replace('.',',')} s ; arrêt : ${R.stopReason}`));
+    if(f.it===0)rows.push(`<tr><td colspan="7" style="text-align:left" class="ko">Aucune itération acceptée : le pot de départ est déjà proche de la saturation (B fer 95 % = ${nf(h0.B95,3)} T) — tout le fer y travaille, il n’y a rien à retirer sans perdre d’énergie. Choisissez un point du front moins saturé (B noyau plus faible) ou relâchez B<sub>max</sub> / W<sub>min</sub>.</td></tr>`);
+    if(R.cross)rows.push(row(`Topologie ${S} recalculée en ${R.cross.solver==='ef'?'EF':'MEC'}`,R.cross,`écart W ${((R.cross.W/f.W-1)*100).toFixed(1).replace('.',',')} %`))}
+  const fr=frontSorted();let cmpTxt='';const best=['ef','mec'].map(k=>TOPORES[k]).filter(R=>R&&R.final)[0];
+  if(fr.length&&best){const f=best.final,dom=fr.filter(q=>q.extra.W>=f.W);const mMin=dom.length?Math.min(...dom.map(q=>q.extra.mfe)):NaN;
+    const caveat=NS.mode==='direct'?'':' <span class="hint">(front calculé sur le modèle du plan : ses valeurs de W sont approchées ; relancez NSGA-II en évaluation directe pour une comparaison exacte.)</span>';
+    cmpTxt=(isFinite(mMin)?`Pour W ≥ ${nf(f.W,4)} mJ, le front paramétrique demande au moins <b>${nf(mMin,4)} g</b> de fer ; la topologie obtenue en utilise <b>${nf(f.mfe,4)} g</b> (${((f.mfe/mMin-1)*100).toFixed(0)} %).`:`Aucun point du front paramétrique n’atteint W = ${nf(f.W,4)} mJ.`)+caveat}
+  $('tpRes').innerHTML=`<div class="tbl"><table class="res" style="width:auto"><tr><th style="text-align:left">Géométrie</th><th>masse (g)</th><th>W (mJ)</th><th>L (mH)</th><th>W/masse (mJ/kg)</th><th>B fer 95 % (T)</th><th style="text-align:left">remarque</th></tr>${rows.join('')}</table></div>
+    <div class="cmp"><b>Lecture.</b> Dans une inductance à entrefer, l’énergie est stockée surtout dans l’entrefer ; le fer ne sert qu’à canaliser le flux. Les cellules où B est faible (coins des flasques, extérieur du cylindre, centre du noyau près de l’axe en haut) ne contribuent presque pas à W : l’algorithme les retire et allège la pièce à W quasi constant.
+      Il s’arrête quand le fer restant approche de la saturation : comme pour l’optimisation paramétrique, la contrainte active est l’induction dans le fer. ${cmpTxt}
+      <br><span class="hint">Les formes obtenues (flasques chanfreinés, noyau évidé) ne sont réalisables qu’en fabrication additive ou en assemblant des pièces usinées : c’est l’objet de la thèse de V. Martin. En fer linéaire, l’algorithme retire beaucoup plus de fer et l’induction calculée dépasse alors largement la saturation : le modèle non linéaire est indispensable.</span></div>`}
+function drawTopoMap(){const c=$('tpMap');if(!c||!c.clientWidth)return;const [g,W,H]=ctx(c),sv=$('tpView').value,R=TOPORES[sv];
+  if(!R||!R.hist.length){g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Lancez l’optimisation topologique (EF ou MEC).',10,20);return}
+  const idx=Math.min(R.hist.length-1,+$('tpSlide').value),snap=R.hist[idx],G=R.grid,s=Math.min((W-90)/(2*G.Rb),(H-24)/(2*G.Zb)),cx=(W-64)/2,cy=H/2;
+  g.fillStyle='#0b1020';g.fillRect(cx-G.Rb*s,cy-G.Zb*s,2*G.Rb*s,2*G.Zb*s);
+  // fer hors espace de conception (sous z0) et entrefer
+  for(const q of FEM.buildGeometry(R.p))if(q.mat==='iron'&&q.z0<G.z0){g.fillStyle='#7d8a9c';rect4(g,cx,cy,s,q.r0,q.r1,q.z0,Math.min(q.z1,G.z0))}
+  for(let i=0;i<G.nr;i++)for(let k=0;k<G.nz;k++){const q=i*G.nz+k;if(!G.design[q]){g.fillStyle='#d9822b';rect4(g,cx,cy,s,G.R[i],G.R[i+1],G.Z[k],G.Z[k+1])}else if(snap.on[q]){g.fillStyle=cmap(snap.Bc[q]/BMAP);rect4(g,cx,cy,s,G.R[i],G.R[i+1],G.Z[k],G.Z[k+1])}}
+  // contour de la géométrie de départ
+  const on0=R.hist[0].on,at=(i,k)=>i>=0&&k>=0&&i<G.nr&&k<G.nz&&G.design[i*G.nz+k]&&on0[i*G.nz+k]?1:0;g.strokeStyle='rgba(255,255,255,.9)';g.setLineDash([3,2]);g.lineWidth=1;g.beginPath();
+  const seg=(r0,z0,r1,z1)=>{for(const sx of[-1,1])for(const sz of[-1,1]){g.moveTo(cx+sx*r0*s,cy-sz*z0*s);g.lineTo(cx+sx*r1*s,cy-sz*z1*s)}};
+  for(let i=0;i<=G.nr;i++)for(let k=0;k<G.nz;k++)if(at(i-1,k)!==at(i,k))seg(G.R[i],G.Z[k],G.R[i],G.Z[k+1]);
+  for(let i=0;i<G.nr;i++)for(let k=0;k<=G.nz;k++)if(k>0&&at(i,k-1)!==at(i,k))seg(G.R[i],G.Z[k],G.R[i+1],G.Z[k]);
+  g.stroke();g.setLineDash([]);cbar(g,W-52,22,H-44,BMAP,'|B| (T)');
+  $('tpItLab').textContent=`${sv==='ef'?'EF':'MEC'} — it. ${snap.it} : ${nf(snap.mfe,4)} g, W ${nf(snap.W,4)} mJ, B95 ${nf(snap.B95,3)} T`}
+function drawTopoCurve(){const c=$('tpCurve');if(!c||!c.clientWidth)return;const [g,W,H]=ctx(c);const sets=[];
+  const ref=(TOPORES.ef||TOPORES.mec||{}).ref,fr=frontSorted().map(q=>({x:q.extra.mfe,y:q.extra.W}));
+  for(const [sv,col] of [['ef',css('--accent')],['mec','#e67e22']]){const R=TOPORES[sv];if(R&&R.hist.length)sets.push({sv,col,pts:R.hist.map(h=>({x:h.mfe,y:h.W}))})}
+  const all=[...fr,...sets.flatMap(o=>o.pts),...(ref?[{x:ref.mfe,y:ref.W}]:[])];if(!all.length){g.fillStyle=css('--muted');g.textAlign='left';g.fillText('Courbe W(masse) des itérations.',10,20);return}
+  const P={l:60,r:12,t:14,b:38},w=W-P.l-P.r,h=H-P.t-P.b;let x0=Math.min(...all.map(o=>o.x)),x1=Math.max(...all.map(o=>o.x)),y0=Math.min(...all.map(o=>o.y)),y1=Math.max(...all.map(o=>o.y));
+  const px=(x1-x0)*.06||10,py=(y1-y0)*.08||10;x0-=px;x1+=px;y0-=py;y1+=py;const X=v=>P.l+(v-x0)/(x1-x0)*w,Y=v=>P.t+h-(v-y0)/(y1-y0)*h;
+  g.strokeStyle=css('--line');g.strokeRect(P.l,P.t,w,h);g.fillStyle=css('--muted');for(let k=0;k<=4;k++){g.textAlign='center';g.fillText(nf(x0+(x1-x0)*k/4,3),P.l+w*k/4,H-P.b+14);g.textAlign='right';g.fillText(nf(y0+(y1-y0)*k/4,3),P.l-5,P.t+h-h*k/4+4)}
+  g.fillStyle=css('--fg');g.textAlign='center';g.fillText('Masse de fer (g)',P.l+w/2,H-6);g.save();g.translate(13,P.t+h/2);g.rotate(-Math.PI/2);g.fillText('Énergie emmagasinée W (mJ)',0,0);g.restore();
+  g.fillStyle='rgba(140,150,160,.75)';for(const o of fr){g.beginPath();g.arc(X(o.x),Y(o.y),3,0,7);g.fill()}
+  for(const o of sets){g.strokeStyle=o.col;g.lineWidth=1.8;g.beginPath();o.pts.forEach((q,i)=>i?g.lineTo(X(q.x),Y(q.y)):g.moveTo(X(q.x),Y(q.y)));g.stroke();g.fillStyle=o.col;for(const q of o.pts){g.beginPath();g.arc(X(q.x),Y(q.y),2.4,0,7);g.fill()}
+    const e=o.pts[o.pts.length-1];g.beginPath();g.arc(X(e.x),Y(e.y),5,0,7);g.fill()}
+  if(ref){g.fillStyle=css('--fg');g.fillRect(X(ref.mfe)-5,Y(ref.W)-5,10,10)}
+  const R=TOPORES[$('tpView').value];if(R&&R.hist.length){const q=R.hist[Math.min(R.hist.length-1,+$('tpSlide').value)];g.strokeStyle=css('--fg');g.lineWidth=2;g.beginPath();g.arc(X(q.mfe),Y(q.W),8,0,7);g.stroke()}
+  g.textAlign='left';let ly=P.t+14;const leg=(col,t,sq)=>{g.fillStyle=col;if(sq)g.fillRect(P.l+8,ly-8,8,8);else{g.beginPath();g.arc(P.l+12,ly-4,4,0,7);g.fill()}g.fillStyle=css('--fg');g.fillText(t,P.l+22,ly);ly+=15};
+  if(ref)leg(css('--fg'),'pot paramétrique de départ (EF exact)',1);for(const o of sets)leg(o.col,'itérations topologiques '+(o.sv==='ef'?'EF':'MEC'));if(fr.length)leg('rgba(140,150,160,.9)','front de Pareto paramétrique (NSGA-II)')}
 
 /* ---------- comparaison des plans ---------- */
 function compareDesigns(){const k=active().length;if(k<2||k>6)return;const rows=[];
@@ -475,7 +617,11 @@ buildFactTable();fillResp();refreshDesignOptions();
 $('design').onchange=$('optModel').onchange=refreshDesignOptions;$('gen').onclick=generate;$('runAll').onclick=runAll;$('stop').onclick=()=>STOP=true;$('csv').onclick=exportCSV;
 $('resp').onchange=()=>{showStats();drawAll()};$('model').onchange=$('logy').onchange=refit;$('fx').onchange=$('fy').onchange=()=>{buildSliders();drawSurf()};
 $('optim').onclick=optimize;$('verify').onclick=verify;$('cmpDesigns').onclick=compareDesigns;
-document.querySelectorAll('input[name=meth]').forEach(r=>r.onchange=()=>{const m=document.querySelector('input[name=meth]:checked').value;for(const k of ['doe','sqp','nsga'])$('pane-'+k).style.display=k===m?'':'none';$('mono').style.display=m==='nsga'?'none':'';$('multi').style.display=m==='nsga'?'':'none'});
+document.querySelectorAll('input[name=meth]').forEach(r=>r.onchange=()=>{const m=document.querySelector('input[name=meth]:checked').value;for(const k of ['doe','sqp','nsga','topo'])$('pane-'+k).style.display=k===m?'':'none';$('mono').style.display=m==='doe'||m==='sqp'?'':'none';$('multi').style.display=m==='nsga'?'':'none';$('crow').style.display=m==='topo'?'none':'';if(m==='topo'){drawTopoMap();drawTopoCurve()}if(m==='nsga'){drawGeoStrip();drawNsField()}});
+$('nsSlide').addEventListener('input',()=>{const L=frontSorted();const p=L[+$('nsSlide').value];if(!p)return;NSSEL=p;showSel();drawPareto();drawGeoStrip();drawNsField()});
+$('tpEF').onclick=()=>runTopo(['ef']);$('tpMEC').onclick=()=>runTopo(['mec']);$('tpBoth').onclick=()=>runTopo(['ef','mec']);$('tpStop').onclick=()=>TOPOSTOP=true;
+$('tpView').onchange=()=>{const r=TOPORES[$('tpView').value];if(r){$('tpSlide').max=r.hist.length-1;$('tpSlide').value=r.hist.length-1}drawTopoMap();drawTopoCurve()};$('tpSlide').addEventListener('input',()=>{drawTopoMap();drawTopoCurve()});
+addEventListener('resize',()=>{drawGeoStrip();drawNsField();drawTopoMap();drawTopoCurve()});
 $('sqpRun').onclick=runSQP;$('sqpStop').onclick=()=>SQPSTOP=true;$('nsRun').onclick=runNSGA;$('nsStop').onclick=()=>NSSTOP=true;$('nsVerify').onclick=nsVerify;$('pareto').addEventListener('click',selectPareto);
 const nsCost=()=>{$('nsCost').textContent=$('nsEval').value==='direct'?`≈ ${(+$('nsPop').value||40)*((+$('nsGen').value||30)+1)} simulations`:'évaluations instantanées sur le modèle'};for(const id of ['nsEval','nsPop','nsGen'])$(id).addEventListener('input',nsCost);nsCost();
 for(const id of ['useC','cresp','cop','cval'])$(id).onchange=drawSurf;
