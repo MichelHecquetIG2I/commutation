@@ -99,6 +99,11 @@ Exemple par défaut : g ∈ [0,3 ; 2] mm, rn ∈ [9 ; 15] mm, h ∈ [25 ; 50] mm
 maximiser L / masse de fer sous B noyau ≤ 1,2 T → g = 1,20 mm, rn = 9 mm, h = 25 mm, L = 3,16 mH ; modèle validé
 par simulation à 0,2 %.
 
+Tutoriel vidéo (1 min 30, bouton « ▶ Tutoriel » ou `SimEF/plans.html?tuto`) : `tools/simef/tutoriel/plans-experiences.mp4`,
+enregistré par `python3 tools/simef/record_plans.py`. Illustration « Exemple de résultats » (bas de la page,
+`SimEF/illustration-optimisation-inductance.png`) : 15 calculs EF réels, scripts `tools/simef/illustration_donnees.js`
+et `tools/simef/illustration_figure.py`.
+
 Dossier généré : modifier `magnetique.html`, `fem-axi.js`, `mec-axi.js` ou `tools/simef/` puis
 `python3 tools/build_simef.py`.
 

@@ -28,7 +28,7 @@ button,input,select{font:inherit;color:inherit}
 .main{display:grid;grid-template-columns:340px minmax(0,1fr);min-height:calc(100% - 50px)}
 @media (max-width:980px){.main{grid-template-columns:1fr}}
 .side{background:var(--panel);border-right:1px solid var(--line);padding:12px 14px}
-.content{padding:14px;display:grid;gap:14px;align-content:start}
+.content{padding:14px 14px 260px;display:grid;gap:14px;align-content:start}
 h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px;font-weight:600}
 h3:first-child{margin-top:0}
 h3 .n{display:inline-block;width:17px;height:17px;border-radius:50%;background:var(--accent);color:var(--accent-fg);text-align:center;line-height:17px;font-size:10px;margin-right:6px}
@@ -67,6 +67,7 @@ code{font-family:var(--mono);font-size:12px}
   <div class="brand"><i></i>SimEF</div>
   <nav class="apptabs radio" aria-label="Mode"><a href="index.html" title="Calcul d’inductance par éléments finis">EF</a><a href="index.html?mode=mec" title="Réseau de réluctances (Magnetic Equivalent Circuit)">MEC</a><a class="on" href="plans.html" aria-current="page" title="Optimisation paramétrique par plans d’expériences">Plans d’expériences</a></nav>
   <span class="hint">Optimisation paramétrique d’une inductance en pot avec entrefer (calcul EF ou MEC à chaque essai)</span>
+  <span style="flex:1"></span><button class="btn" id="tutobtn" title="Vidéo : utilisation de l’outil (1 min 30)">▶ Tutoriel</button><a class="btn" href="#exemple" style="text-decoration:none">Exemple de résultats</a>
 </header>
 <div class="main">
 <aside class="side">
@@ -131,7 +132,18 @@ code{font-family:var(--mono);font-size:12px}
     <div style="display:flex;gap:6px"><button class="btn primary" id="optim" disabled>Optimiser</button><button class="btn" id="verify" disabled>Vérifier par simulation</button></div>
     <div id="optRes" style="margin-top:8px"></div>
   </section>
+  <section class="card" id="exemple">
+    <h2>Exemple de résultats sur l’inductance</h2>
+    <p class="hint" style="margin:0 0 8px">Scénario par défaut, calculé par éléments finis : plan composite centré (15 essais) sur l’entrefer g, le rayon du noyau rn et la hauteur du bobinage h, à I = 10 A ;
+      maximiser L / masse de fer sous B noyau ≤ 1,2 T. (a) champ à l’optimum, (b) surface de réponse et contrainte, (c) effets des facteurs, (d) saturation L(I), (e) vérification de l’optimum.</p>
+    <a href="illustration-optimisation-inductance.png" target="_blank" rel="noopener"><img src="illustration-optimisation-inductance.png" alt="Résultats de l’optimisation de l’inductance en pot : carte de B à l’optimum, surface de réponse L/masse en fonction de g et rn avec la contrainte B = 1,2 T, effets des facteurs, courbe L(I), tableau de vérification" style="width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff" loading="lazy"></a>
+  </section>
 </main></div>
+<dialog id="tuto" style="border:0;border-radius:12px;padding:0;width:min(980px,96vw);background:var(--panel);color:var(--fg);box-shadow:0 20px 60px rgba(0,0,0,.35)" aria-label="Tutoriel vidéo">
+  <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)"><b style="flex:1">Tutoriel — plans d’expériences et optimisation</b><button class="btn" id="tuto-close" aria-label="Fermer le tutoriel">✕</button></div>
+  <div style="padding:12px 14px 14px"><video id="tuto-video" controls playsinline preload="none" poster="tutoriel/plans-experiences.jpg" style="width:100%;aspect-ratio:16/9;background:#000;border-radius:8px"><source src="tutoriel/plans-experiences.mp4" type="video/mp4"></video>
+    <p class="hint">Facteurs et bornes · solveur · choix et comparaison des plans · simulations · modèle (R², Q², effets) · surface de réponse · optimisation sous contrainte et vérification · export CSV.</p></div>
+</dialog>
 <script src="fem-axi.js"></script>
 <script src="mec-axi.js"></script>
 <script src="doe.js"></script>
@@ -307,8 +319,8 @@ function optimize(){if(!PLAN)return;const k=PLAN.k,rid=$('obj').value,sg=$('dir'
 function showOpt(sim){const F=PLAN.facts;let h='<table class="res" style="width:auto"><tr><th style="text-align:left">Optimum</th>'+F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')+'</tr><tr><td style="text-align:left">valeurs</td>'+OPT.real.map(v=>`<td>${nf(v)}</td>`).join('')+'</tr></table>';
   h+='<table class="res" style="width:auto;margin-top:8px"><tr><th style="text-align:left">Réponse</th><th>modèle</th>'+(sim?'<th>simulation</th><th>écart</th>':'')+'</tr>'+
     RESP.map(q=>{const p=pred(q.id,OPT.x),s=sim?sim[q.id]:NaN;return `<tr><td style="text-align:left">${q.name} (${q.unit})</td><td>${nf(p,q.d)}</td>${sim?`<td>${nf(s,q.d)}</td><td class="${Math.abs(p/s-1)<0.02?'ok':Math.abs(p/s-1)<0.05?'wa':'ko'}">${((p/s-1)*100).toFixed(1)} %</td>`:''}</tr>`}).join('')+'</table>';
-  const emax=sim?Math.max(...RESP.map(q=>Math.abs(pred(q.id,OPT.x)/sim[q.id]-1)).filter(isFinite)):0;
-  if(sim)h+=emax<0.05?`<div class="ok" style="margin-top:6px">Le modèle est validé à l’optimum (écart maximal ${(emax*100).toFixed(1)} %).</div>`:`<div class="hint" style="margin-top:6px">Un écart important indique que le modèle est insuffisant près de l’optimum : enrichir le plan (plus d’essais, modèle quadratique, log(y)) ou réduire le domaine autour de l’optimum.</div>`;
+  const keys=[...new Set([$('obj').value,...($('useC').checked?[$('cresp').value]:[])])],emax=sim?Math.max(...keys.map(k=>Math.abs(pred(k,OPT.x)/sim[k]-1)).filter(isFinite)):0;
+  if(sim)h+=emax<0.05?`<div class="ok" style="margin-top:6px">Le modèle est validé à l’optimum : écart de ${(emax*100).toFixed(1)} % au plus sur l’objectif et la contrainte.</div>`:`<div class="hint" style="margin-top:6px">Un écart important indique que le modèle est insuffisant près de l’optimum : enrichir le plan (plus d’essais, modèle quadratique, log(y)) ou réduire le domaine autour de l’optimum.</div>`;
   $('optRes').innerHTML=h}
 function verify(){if(!OPT)return;const vals={};PLAN.facts.forEach((f,j)=>vals[f.id]=OPT.real[j]);const p=paramsFor(vals),bad=valid(p);if(bad){$('optRes').insertAdjacentHTML('beforeend','<div class="ko">'+bad+'</div>');return}
   $('verify').disabled=true;setTimeout(()=>{try{showOpt(simulate(p))}catch(e){$('optRes').insertAdjacentHTML('beforeend','<div class="ko">'+e.message+'</div>')}$('verify').disabled=false},20)}
@@ -332,6 +344,9 @@ $('optim').onclick=optimize;$('verify').onclick=verify;$('cmpDesigns').onclick=c
 for(const id of ['useC','cresp','cop','cval'])$(id).onchange=drawSurf;
 $('solver').onchange=$('mat').onchange=()=>{if(PLAN){PLAN.runs.forEach(r=>{r.res=null;r.err=null});FITS={};OPT=null;renderTable();$('optRes').innerHTML='';$('stats').innerHTML='<span class="hint">Solveur modifié : relancez les simulations.</span>';drawAll()}};
 addEventListener('resize',drawAll);
+{const d=$('tuto'),v=$('tuto-video'),close=()=>{v.pause();d.close?d.close():d.removeAttribute('open')};
+  $('tutobtn').onclick=()=>{d.showModal?d.showModal():d.setAttribute('open','');v.play().catch(()=>{})};$('tuto-close').onclick=close;d.addEventListener('close',()=>v.pause());d.addEventListener('click',e=>{if(e.target===d)close()});
+  if(new URL(location.href).searchParams.has('tuto'))setTimeout(()=>$('tutobtn').click(),300)}
 generate();
 </script>
 </body></html>
