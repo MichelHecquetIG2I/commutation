@@ -108,6 +108,11 @@ code{font-family:var(--mono);font-size:12px}
   </details>
 </aside>
 <main class="content">
+  <section class="card" id="geoCard">
+    <h2>Inductance étudiée et paramètres <span class="sp"></span><label class="hint" style="font-weight:400">Afficher <select class="v" id="geoShow" style="width:auto"><option value="fix">valeurs « fixe »</option><option value="center">centre du domaine</option><option value="min">bornes min</option><option value="max">bornes max</option><option value="opt">optimum du plan</option><option value="sqp">optimum SQP</option><option value="nsga">point choisi (NSGA-II)</option></select></label></h2>
+    <canvas id="geo" style="width:100%;height:360px;display:block"></canvas>
+    <div class="hint">Coupe dans un plan méridien (symétrie de révolution autour de l’axe et symétrie par rapport au plan médian). Fer en gris, bobinage en orange, entrefer g au centre du noyau. La figure suit les valeurs du tableau des facteurs.</div>
+  </section>
   <section class="card">
     <h2>Plan d’expériences <span class="sp"></span><button class="btn primary" id="runAll" disabled>Lancer les simulations</button><button class="btn" id="stop" disabled>Arrêter</button><button class="btn" id="csv" disabled>Exporter CSV</button></h2>
     <div class="kpi" id="crit"><span class="hint">Choisissez les facteurs et le type de plan, puis « Générer le plan ».</span></div>
@@ -244,7 +249,8 @@ const RHO_FE=7650;
 function buildFactTable(){const tb=$('fac').querySelector('tbody');tb.innerHTML='';
   FACT.forEach((f,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td><input type="checkbox" data-i="${i}" class="fon" ${f.on?'checked':''} aria-label="${f.name}"></td><td>${f.name} <span class="hint">${f.sym}${f.unit?' ('+f.unit+')':''}</span></td>
     <td><input type="number" step="any" data-i="${i}" data-k="min" value="${f.min}"></td><td><input type="number" step="any" data-i="${i}" data-k="max" value="${f.max}"></td><td><input type="number" step="any" data-i="${i}" data-k="fix" value="${f.fix}"></td>`;tb.appendChild(tr)});
-  tb.querySelectorAll('input').forEach(el=>el.onchange=()=>{const f=FACT[+el.dataset.i];if(el.classList.contains('fon'))f.on=el.checked;else f[el.dataset.k]=parseFloat(el.value);refreshDesignOptions()})}
+  tb.querySelectorAll('input').forEach(el=>el.onchange=()=>{const f=FACT[+el.dataset.i];if(el.classList.contains('fon'))f.on=el.checked;else f[el.dataset.k]=parseFloat(el.value);refreshDesignOptions();drawGeo()});
+  tb.querySelectorAll('input[type=number]').forEach(el=>el.oninput=()=>{const x=parseFloat(el.value);if(isFinite(x)){FACT[+el.dataset.i][el.dataset.k]=x;drawGeo()}})}
 const active=()=>FACT.filter(f=>f.on);
 
 /* ---------- géométrie et simulation d'un essai ---------- */
@@ -394,7 +400,7 @@ function optimize(){if(!PLAN)return;const k=PLAN.k,rid=$('obj').value,sg=$('dir'
   OPT={x:best[1],real:best[1].map((c,j)=>PLAN.facts[j].min+(c+1)/2*(PLAN.facts[j].max-PLAN.facts[j].min))};
   // curseurs des autres facteurs placés à l'optimum
   SL=OPT.x.slice();buildSliders();showOpt();drawSurf();$('verify').disabled=false}
-function showOpt(sim){const F=PLAN.facts;let h='<table class="res" style="width:auto"><tr><th style="text-align:left">Optimum</th>'+F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')+'</tr><tr><td style="text-align:left">valeurs</td>'+OPT.real.map(v=>`<td>${nf(v)}</td>`).join('')+'</tr></table>';
+function showOpt(sim){setTimeout(drawGeo,0);const F=PLAN.facts;let h='<table class="res" style="width:auto"><tr><th style="text-align:left">Optimum</th>'+F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')+'</tr><tr><td style="text-align:left">valeurs</td>'+OPT.real.map(v=>`<td>${nf(v)}</td>`).join('')+'</tr></table>';
   h+='<table class="res" style="width:auto;margin-top:8px"><tr><th style="text-align:left">Réponse</th><th>modèle</th>'+(sim?'<th>simulation</th><th>écart</th>':'')+'</tr>'+
     RESP.map(q=>{const p=pred(q.id,OPT.x),s=sim?sim[q.id]:NaN;return `<tr><td style="text-align:left">${q.name} (${q.unit})</td><td>${nf(p,q.d)}</td>${sim?`<td>${nf(s,q.d)}</td><td class="${Math.abs(p/s-1)<0.02?'ok':Math.abs(p/s-1)<0.05?'wa':'ko'}">${((p/s-1)*100).toFixed(1)} %</td>`:''}</tr>`}).join('')+'</table>';
   const keys=[...new Set([$('obj').value,...($('useC').checked?[$('cresp').value]:[])])],emax=sim?Math.max(...keys.map(k=>Math.abs(pred(k,OPT.x)/sim[k]-1)).filter(isFinite)):0;
@@ -427,7 +433,7 @@ async function runSQP(){const F=FF(),k=F.length;if(k<2){alert('Choisissez au moi
     $('sqpTab').insertAdjacentHTML('beforeend',`<tr><td>${e.it}</td>${real.map(v=>`<td>${nf(v)}</td>`).join('')}<td>${r?nf(r[rid],q.d):'—'}</td>${useC?`<td class="${r&&consV(r[cr])<=1e-3?'':'ko'}">${r?nf(r[cr],qc.d):'—'}</td>`:''}<td>${isFinite(e.step)?e.step.toFixed(4):'—'}</td><td>${SIMCOUNT-c0}</td><td class="c" style="text-align:left">${e.note||''}</td></tr>`);
     $('sqpInfo').innerHTML=`<span>Itération <b>${e.it}</b></span><span>Simulations : <b>${SIMCOUNT-c0}</b></span><span>${((performance.now()-t0)/1000).toFixed(1)} s</span>`;drawSQP(hist,q,qc,useC);drawSurf()};
   let res=null;try{res=await OPTIM.sqp(fun,x0,{h:parseFloat($('sqpH').value.replace(',','.'))||0.03,maxIter:+$('sqpIt').value||12,central:$('sqpFD').value==='cen',log})}catch(e){if(e.message!=='stop')$('sqpRes').innerHTML='<span class="ko">'+e.message+'</span>'}
-  $('sqpRun').disabled=false;$('sqpStop').disabled=true;
+  $('sqpRun').disabled=false;$('sqpStop').disabled=true;drawGeo();
   if(res){const r=simDirect(res.x),real=realOf(res.x),n=SIMCOUNT-c0;let h=`<div class="cmp"><b>Optimum SQP</b> : ${F.map((f,j)=>`${f.sym} = ${nf(real[j])} ${f.unit}`).join(', ')} → ${q.name} = <b>${nf(r[rid],q.d)} ${q.unit}</b>${useC?`, ${qc.name} = ${nf(r[cr],qc.d)} ${qc.unit}`:''} — <b>${n}</b> simulations, ${((performance.now()-t0)/1000).toFixed(1)} s.`;
     if(OPT){const so=OPT.sim||simDirect(OPT.x);if(so){const feas=!useC||consV(so[cr])<=2e-3;
       h+=`<br>Méthode 1 (plan de ${PLAN.runs.length} essais + modèle + 1 vérification) : ${q.name} = ${nf(so[rid],q.d)} ${q.unit}`+(feas?` → écart SQP / plan : <b>${((r[rid]/so[rid]-1)*100).toFixed(2).replace('.',',')} %</b>.`
@@ -469,7 +475,7 @@ function drawPareto(){const [g,W,H]=ctx($('pareto'));if(!NS)return;const q1=RESP
   if(pv.length){const lx=P.l+w-160,ly=P.t+h-40;for(let i=0;i<=20;i++){g.fillStyle=cmap(i/20);g.fillRect(lx+i*7,ly,7,8)}g.fillStyle=css('--fg');g.textAlign='left';g.fillText('Wg/W : '+nf(plo,3)+' → '+nf(phi,3)+' %',lx,ly+22)}
   g.fillStyle=css('--muted');g.textAlign='left';g.fillText('● front de Pareto   ● dominés   ✕ contrainte violée',P.l+6,P.t+h-6)}
 function selectPareto(ev){if(!NS||!NS.view)return;const rect=$('pareto').getBoundingClientRect(),mx=ev.clientX-rect.left,my=ev.clientY-rect.top;let best=null,bd=1e9;
-  for(const o of NS.view.pts){if(o.p.cv>0)continue;const d=Math.hypot(NS.view.X(o.x)-mx,NS.view.Y(o.y)-my);if(d<bd){bd=d;best=o.p}}if(!best||bd>25)return;NSSEL=best;showSel();drawPareto();$('nsVerify').disabled=NS.mode!=='model';const i=frontSorted().indexOf(best);if(i>=0)$('nsSlide').value=i;drawGeoStrip();drawNsField()}
+  for(const o of NS.view.pts){if(o.p.cv>0)continue;const d=Math.hypot(NS.view.X(o.x)-mx,NS.view.Y(o.y)-my);if(d<bd){bd=d;best=o.p}}if(!best||bd>25)return;NSSEL=best;showSel();drawPareto();$('nsVerify').disabled=NS.mode!=='model';const i=frontSorted().indexOf(best);if(i>=0)$('nsSlide').value=i;drawGeoStrip();drawNsField();drawGeo()}
 function showSel(sim){const p=NSSEL,F=NS.F,real=p.x.map((c,j)=>F[j].min+(c+1)/2*(F[j].max-F[j].min)),r=p.extra;
   let h=`<table class="res" style="width:auto"><tr><th style="text-align:left">Point choisi</th>${F.map(f=>`<th>${f.sym}${f.unit?' ('+f.unit+')':''}</th>`).join('')}</tr><tr><td style="text-align:left">valeurs</td>${real.map(v=>`<td>${nf(v)}</td>`).join('')}</tr></table>`;
   h+=`<table class="res" style="width:auto;margin-top:6px"><tr><th style="text-align:left">Réponse</th><th>${NS.mode==='model'?'modèle':'simulation'}</th>${sim?'<th>simulation</th><th>écart</th>':''}</tr>`+RESP.map(q=>`<tr><td style="text-align:left">${q.name} (${q.unit})</td><td>${nf(r[q.id],q.d)}</td>${sim?`<td>${nf(sim[q.id],q.d)}</td><td>${((r[q.id]/sim[q.id]-1)*100).toFixed(1).replace('.',',')} %</td>`:''}</tr>`).join('')+'</table>';
@@ -668,6 +674,65 @@ function compareSVG(){const rows=[['Variables','k cotes : g, rn, e, h (continues
     ${[b,c].map((t,k)=>{const L=t.split('|');return L.map((u,m)=>`<text x="${c0+16+k*c1}" y="${y+rh/2+2+(m-(L.length-1)/2)*14}" style="fill:var(--fg);font:11.5px var(--ui)">${esc(u)}</text>`).join('')}).join('')}`;y+=rh});
   return o+'</svg>'}
 function renderFlows(){for(const k of Object.keys(FLOWS)){const el=$('flow-'+k);if(el)el.innerHTML=flowSVG(FLOWS[k],k)}const c=$('flow-cmp');if(c)c.innerHTML=compareSVG()}
+/* ---------- figure 2D de l'inductance avec ses paramètres ---------- */
+function geoVals(){const m=$('geoShow').value,vals={},act=FACT.filter(f=>f.on);let lab='valeurs « fixe » de tous les facteurs';
+  if(m==='center'){act.forEach(f=>vals[f.id]=(f.min+f.max)/2);lab='facteurs actifs au centre du domaine'}
+  else if(m==='min'){act.forEach(f=>vals[f.id]=f.min);lab='facteurs actifs à leur borne min'}
+  else if(m==='max'){act.forEach(f=>vals[f.id]=f.max);lab='facteurs actifs à leur borne max'}
+  else if(m==='opt'){if(OPT&&PLAN){PLAN.facts.forEach((f,j)=>vals[f.id]=f.min+(OPT.x[j]+1)/2*(f.max-f.min));lab='optimum du plan (méthode 1)'}else lab='optimum du plan non disponible : valeurs « fixe »'}
+  else if(m==='sqp'){if(SQPPATH&&SQPPATH.length){const re=realOf(SQPPATH[SQPPATH.length-1]);FF().forEach((f,j)=>vals[f.id]=re[j]);lab='optimum SQP (méthode 2)'}else lab='optimum SQP non disponible : valeurs « fixe »'}
+  else if(m==='nsga'){if(NS&&NSSEL){NS.F.forEach((f,j)=>vals[f.id]=f.min+(NSSEL.x[j]+1)/2*(f.max-f.min));lab='point choisi sur le front NSGA-II'}else lab='aucun point NSGA-II choisi : valeurs « fixe »'}
+  return {vals,lab}}
+function dimLine(g,x1,y1,x2,y2,col,lab,lx,ly,align='left'){g.strokeStyle=col;g.fillStyle=col;g.lineWidth=1.2;g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();
+  const ah=(x,y,ux,uy)=>{g.beginPath();g.moveTo(x,y);g.lineTo(x-6*ux+3*uy,y-6*uy-3*ux);g.lineTo(x-6*ux-3*uy,y-6*uy+3*ux);g.closePath();g.fill()};
+  const L=Math.hypot(x2-x1,y2-y1)||1,ux=(x2-x1)/L,uy=(y2-y1)/L;ah(x2,y2,ux,uy);ah(x1,y1,-ux,-uy);
+  if(lab){g.textAlign=align;g.font='600 12px '+css('--ui');const w=g.measureText(lab).width,x0=align==='left'?lx:align==='right'?lx-w:lx-w/2;
+    g.fillStyle=css('--canvas');g.fillRect(x0-2,ly-11,w+4,15);g.fillStyle=col;g.fillText(lab,lx,ly)}}
+function drawGeo(){const c=$('geo');if(!c||!c.clientWidth)return;const [g,W,H]=ctx(c);const {vals,lab}=geoVals(),p=paramsFor(vals),v=p._v,regs=FEM.buildGeometry(p);
+  const ro2=regs.ro2,Ht=regs.H,ef=regs.e,Zt=Ht/2+ef,ri=p.ri,re=p.re;
+  const Wd=Math.min(W*0.62,W-320),s=Math.min((Wd-330)/(2*ro2),(H-96)/(2*Zt)),cx=200+ro2*s,cy=H/2-8;
+  const F=id=>FACT.find(f=>f.id===id),acc=css('--accent'),mut=css('--muted');
+  const colOf=id=>F(id).on?acc:mut,rngOf=id=>{const f=F(id);return f.on?` [${nf(f.min,3)} ; ${nf(f.max,3)}]`:''};
+  // pièces (coupe complète, symétrie de révolution et plan médian)
+  for(const q of regs){g.fillStyle=q.mat==='iron'?'#8b97a8':'#d9822b';rect4(g,cx,cy,s,q.r0,q.r1,q.z0,q.z1)}
+  g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=.8;for(const q of regs)outline4(g,cx,cy,s,q.r0,q.r1,q.z0,q.z1);
+  // axe
+  g.strokeStyle=mut;g.setLineDash([8,3,2,3]);g.lineWidth=1;g.beginPath();g.moveTo(cx,cy-Zt*s-18);g.lineTo(cx,cy+Zt*s+18);g.stroke();g.setLineDash([]);
+  g.fillStyle=mut;g.textAlign='center';g.font='11px '+css('--ui');g.fillText('axe',cx,cy-Zt*s-22);
+  // cotes : rn (dans le noyau, en haut)
+  const yrn=cy-(Ht/2-Math.max(2,Ht*0.12))*s;dimLine(g,cx,yrn,cx+p.rn*s,yrn,colOf('rn'),`rn = ${nf(v.rn,3)} mm${rngOf('rn')}`,cx+p.rn*s+6,yrn-6);
+  // e (largeur du bobinage)
+  const ye=cy+(p.h/4)*s;dimLine(g,cx+ri*s,ye,cx+re*s,ye,colOf('eb'),`e = ${nf(v.eb,3)} mm${rngOf('eb')}`,cx+(ri+re)/2*s,ye+20,'center');
+  // h (hauteur du bobinage), à droite
+  const xh=cx+ro2*s+26;g.strokeStyle=colOf('h');g.setLineDash([3,3]);g.lineWidth=1;g.beginPath();g.moveTo(cx+re*s,cy-p.h/2*s);g.lineTo(xh+6,cy-p.h/2*s);g.moveTo(cx+re*s,cy+p.h/2*s);g.lineTo(xh+6,cy+p.h/2*s);g.stroke();g.setLineDash([]);
+  dimLine(g,xh,cy-p.h/2*s,xh,cy+p.h/2*s,colOf('h'),`h = ${nf(v.h,3)} mm`,xh+8,cy-4);if(F('h').on){g.font='11px '+css('--ui');g.fillText(rngOf('h').trim(),xh+8,cy+12)}
+  // g (entrefer), côté gauche, avec repère agrandi
+  const xg=cx-p.rn*s*0.55,gpx=Math.max(p.gap*s,3);g.fillStyle=css('--canvas');g.fillRect(cx-p.rn*s,cy-gpx/2,2*p.rn*s,gpx);
+  g.strokeStyle=colOf('g');g.lineWidth=1.2;g.beginPath();g.moveTo(xg,cy-gpx/2-16);g.lineTo(xg,cy-gpx/2);g.moveTo(xg,cy+gpx/2+16);g.lineTo(xg,cy+gpx/2);g.stroke();
+  g.fillStyle=colOf('g');for(const sg of[-1,1]){const y=cy+sg*gpx/2;g.beginPath();g.moveTo(xg,y);g.lineTo(xg-3,y-sg*6);g.lineTo(xg+3,y-sg*6);g.closePath();g.fill()}
+  g.font='600 12px '+css('--ui');g.textAlign='right';const gl=`g = ${nf(v.g,3)} mm${rngOf('g')}`;const xl=cx-ro2*s-34;g.fillStyle=css('--canvas');const gw=g.measureText(gl).width;g.fillRect(xl-gw-2,cy-28-11,gw+4,15);g.fillStyle=colOf('g');g.fillText(gl,xl,cy-28);
+  g.strokeStyle=colOf('g');g.lineWidth=.8;g.beginPath();g.moveTo(xl+2,cy-32);g.lineTo(xg-4,cy-gpx/2-10);g.stroke();
+  // bobine : N, I
+  g.textAlign='center';g.font='600 11px '+css('--ui');g.fillStyle='#fff';const xc=cx+(ri+re)/2*s;
+  g.fillText('N',xc,cy-p.h/4*s-6);g.fillText('I',xc,cy-p.h/4*s+8);
+  // cotes déduites (grises) : rayon extérieur et hauteur totale
+  const yb=cy+Zt*s+18;g.strokeStyle=mut;g.setLineDash([3,3]);g.beginPath();g.moveTo(cx+ro2*s,cy+Zt*s);g.lineTo(cx+ro2*s,yb+4);g.stroke();g.setLineDash([]);
+  dimLine(g,cx,yb,cx+ro2*s,yb,mut,`rₑₓₜ = ${nf(ro2,3)} mm`,cx+ro2*s/2,yb+15,'center');
+  const xH=cx-ro2*s-16;dimLine(g,xH,cy-Zt*s,xH,cy+Zt*s,mut,'',0,0);g.save();g.translate(xH-6,cy+Zt*s-4);g.rotate(-Math.PI/2);g.fillStyle=mut;g.font='12px '+css('--ui');g.textAlign='left';g.fillText(`hauteur totale ${nf(2*Zt,3)} mm`,0,0);g.restore();
+  // panneau des paramètres
+  const x0=Wd+10;let y=24;g.textAlign='left';
+  const line=(t,col,font)=>{g.font=font||('12px '+css('--ui'));g.fillStyle=col||css('--fg');g.fillText(t,x0,y);y+=17};
+  line('Paramètres affichés',css('--fg'),'600 13px '+css('--ui'));line(lab,mut,'11px '+css('--ui'));y+=4;
+  for(const f of FACT){const val=f.id==='N'?Math.round(v.N):v[f.id];line(`${f.sym} = ${nf(val,4)} ${f.unit}`+(f.on?`   facteur [${nf(f.min,3)} ; ${nf(f.max,3)}]`:'   fixe'),f.on?acc:css('--fg'),(f.on?'600 ':'')+'12px '+css('--ui'))}
+  y+=6;line('Grandeurs déduites',css('--fg'),'600 13px '+css('--ui'));
+  let vol=0;for(const q of regs)if(q.mat==='iron')vol+=Math.PI*(q.r1*q.r1-q.r0*q.r0)*(q.z1-q.z0)*2;
+  const mfe=vol*1e-9*RHO_FE*1000,J=p.N*p.I/((re-ri)*p.h);
+  line(`bobinage : rᵢ = rn + 1 = ${nf(ri,3)} mm,  rₑ = rᵢ + e = ${nf(re,3)} mm`);
+  line(`cylindre extérieur : ${nf(re+1,3)} à ${nf(ro2,3)} mm (section = noyau)`);
+  line(`flasques : épaisseur rn/2 = ${nf(ef,3)} mm`);
+  line(`masse de fer ≈ ${nf(mfe,4)} g`);
+  line(`N·I = ${nf(p.N*p.I,4)} A·tr,   J = N·I/(e·h) = ${nf(J,3)} A/mm²`,J>8?css('--bad'):css('--fg'));
+  y+=4;line('En couleur : facteurs du plan ; en gris : cotes déduites.',mut,'11px '+css('--ui'))}
 /* ---------- comparaison des plans ---------- */
 function compareDesigns(){const k=active().length;if(k<2||k>6)return;const rows=[];
   for(const t of Object.keys(DNAME)){let D;try{D=makeDesign(t,k,{n:Math.max(+$('nruns').value,DOE.terms(k,'quad').length),model:'quad',fv:0})}catch(e){D=null}if(!D)continue;
@@ -685,8 +750,8 @@ $('design').onchange=$('optModel').onchange=refreshDesignOptions;$('gen').onclic
 $('resp').onchange=()=>{showStats();drawAll()};$('model').onchange=$('logy').onchange=refit;$('fx').onchange=$('fy').onchange=()=>{buildSliders();drawSurf()};
 $('optim').onclick=optimize;$('verify').onclick=verify;$('cmpDesigns').onclick=compareDesigns;
 document.querySelectorAll('input[name=meth]').forEach(r=>r.onchange=()=>{const m=document.querySelector('input[name=meth]:checked').value;for(const k of ['doe','sqp','nsga','topo'])$('pane-'+k).style.display=k===m?'':'none';$('mono').style.display=m==='doe'||m==='sqp'?'':'none';$('multi').style.display=m==='nsga'?'':'none';$('crow').style.display=m==='topo'?'none':'';if(m==='topo'){drawTopoMap();drawTopoCurve()}if(m==='nsga'){drawGeoStrip();drawNsField()}});
-$('nsSlide').addEventListener('input',()=>{const L=frontSorted();const p=L[+$('nsSlide').value];if(!p)return;NSSEL=p;showSel();drawPareto();drawGeoStrip();drawNsField()});
-renderFlows();
+$('nsSlide').addEventListener('input',()=>{const L=frontSorted();const p=L[+$('nsSlide').value];if(!p)return;NSSEL=p;showSel();drawPareto();drawGeoStrip();drawNsField();drawGeo()});
+renderFlows();drawGeo();$('geoShow').onchange=drawGeo;addEventListener('resize',drawGeo);
 $('tpEF').onclick=()=>runTopo(['ef']);$('tpMEC').onclick=()=>runTopo(['mec']);$('tpBoth').onclick=()=>runTopo(['ef','mec']);$('tpStop').onclick=()=>TOPOSTOP=true;
 $('tpView').onchange=()=>{const r=TOPORES[$('tpView').value];if(r){$('tpSlide').max=r.hist.length-1;$('tpSlide').value=r.hist.length-1}drawTopoMap();drawTopoCurve()};$('tpSlide').addEventListener('input',()=>{drawTopoMap();drawTopoCurve()});
 addEventListener('resize',()=>{drawGeoStrip();drawNsField();drawTopoMap();drawTopoCurve()});
