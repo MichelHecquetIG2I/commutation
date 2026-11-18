@@ -117,7 +117,7 @@ maximiser L / masse de fer sous B noyau ≤ 1,2 T → g = 1,20 mm, rn = 9 mm, h 
 par simulation à 0,2 %. SQP direct (différences centrées) : même optimum (g = 1,205 mm) en 47 simulations EF
 (≈ 5 s). NSGA-II sur le modèle : front W de 174 à 379 mJ pour 216 à 898 g de fer, Wg/W de 75 à 82 %.
 
-Tutoriel vidéo (1 min 30, bouton « ▶ Tutoriel » ou `SimEF/plans.html?tuto`) : `tools/simef/tutoriel/plans-experiences.mp4`,
+Tutoriel vidéo (2 min 15, figure cotée, plan, modèle et les 4 méthodes d’optimisation, bouton « ▶ Tutoriel » ou `SimEF/plans.html?tuto`) : `tools/simef/tutoriel/plans-experiences.mp4`,
 enregistré par `python3 tools/simef/record_plans.py`. Illustration « Exemple de résultats » (bas de la page,
 `SimEF/illustration-optimisation-inductance.png`) : 15 calculs EF réels, scripts `tools/simef/illustration_donnees.js`
 et `tools/simef/illustration_figure.py`.
